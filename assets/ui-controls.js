@@ -1,0 +1,256 @@
+/**
+ * ui-controls.js — Mode setters, filter handlers, theme, tooltips
+ */
+
+function setSellMode(mode) {
+    currentSellMode = mode;
+    document.querySelectorAll('#sellModeButtons .mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    saveSettings();
+    if (allResults.length > 0) reSort();
+}
+
+function setBuyMode(mode) {
+    document.querySelectorAll('#buyModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    document.getElementById('buyMode').value = mode;
+    saveSettings();
+    scheduleRecalc();
+}
+
+function setCraftBuyMode(mode) {
+    document.querySelectorAll('#craftBuyModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    document.getElementById('craftBuyMode').value = mode;
+    saveSettings();
+    scheduleRecalc();
+}
+
+function setBaseItemMode(mode) {
+    document.querySelectorAll('#baseItemModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    document.getElementById('baseItemMode').value = mode;
+    saveSettings();
+    scheduleRecalc();
+}
+
+function setRefineMode(mode) {
+    document.querySelectorAll('#refineModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    document.getElementById('refineMode').value = mode;
+    saveSettings();
+    scheduleRecalc();
+}
+
+function toggleGearPanel() {
+    const panel = document.getElementById('gearPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function onSearchInput() {
+    searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+    renderResults();
+}
+
+function toggleCostFilter(cost) {
+    costFilters[cost] = !costFilters[cost];
+    document.querySelector(`.cost-filter[data-cost="${cost}"]`).classList.toggle('active', costFilters[cost]);
+    saveSettings();
+    renderResults();
+}
+
+function toggleHideInstant() {
+    hideInstant = !hideInstant;
+    document.getElementById('btn-hide-instant').classList.toggle('active', hideInstant);
+    saveSettings();
+    renderResults();
+}
+
+function onMinVolumeChange() {
+    const input = document.getElementById('minVolumeInput');
+    minVolume = parseInt(input.value) || 0;
+    if (minVolume < 0) { minVolume = 0; input.value = 0; }
+    saveSettings();
+    renderResults();
+}
+
+function getDepth() {
+    const el = document.getElementById('craftingDepth');
+    const val = el?.value;
+    if (val === 'all') return 6;
+    const n = parseInt(val);
+    return isNaN(n) ? 3 : Math.min(Math.max(n, 0), 6);
+}
+
+function toggleMarketFee() {
+    marketFeePct = document.getElementById('marketFeeToggle').checked ? 2 : 0;
+    saveSettings();
+    renderResults();
+}
+
+function onDepthChange() {
+    saveSettings();
+    scheduleRecalc();
+}
+
+function populateLevelFilters() {
+    const container = document.getElementById('levelFilters');
+    if (!container) return;
+    for (let lvl = 1; lvl <= 20; lvl++) {
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn level-filter';
+        btn.dataset.level = lvl;
+        btn.textContent = `+${lvl}`;
+        btn.onclick = () => filterLevel(lvl);
+        container.appendChild(btn);
+    }
+}
+
+function filterLevel(level) {
+    if (level === 'all') {
+        activeLevels.clear();
+    } else {
+        if (activeLevels.has(level)) activeLevels.delete(level);
+        else activeLevels.add(level);
+    }
+    document.querySelectorAll('.level-filter').forEach(b => {
+        const btnLevel = b.getAttribute('data-level');
+        if (btnLevel === 'all') {
+            b.classList.toggle('active', activeLevels.size === 0);
+        } else {
+            b.classList.toggle('active', activeLevels.has(parseInt(btnLevel)));
+        }
+    });
+    saveSettings();
+    renderResults();
+}
+
+function sortTable(colIndex) {
+    if (currentSort.col === colIndex) {
+        currentSort.asc = !currentSort.asc;
+    } else {
+        currentSort.col = colIndex;
+        currentSort.asc = false;
+    }
+    reSort();
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀' : '☾';
+    try { localStorage.setItem('mwi-enhance-theme', theme); } catch (e) { /* ignore */ }
+}
+
+function loadTheme() {
+    try {
+        const saved = localStorage.getItem('mwi-enhance-theme');
+        if (saved === 'light' || saved === 'dark') return saved;
+    } catch (e) { /* ignore */ }
+    return 'dark';
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function setupTooltips() {
+    const tip = document.getElementById('tooltip');
+    if (!tip) return;
+    document.querySelectorAll('.info-icon').forEach(icon => {
+        icon.addEventListener('mouseenter', () => {
+            const text = icon.getAttribute('data-tip');
+            if (!text) { tip.style.display = 'none'; return; }
+            tip.innerHTML = '';
+            for (const line of text.split('\n')) {
+                const parts = line.split('|');
+                const row = document.createElement('div');
+                row.className = 'tip-row';
+                const span = document.createElement('span');
+                if (parts.length === 2) {
+                    span.className = 'tip-label';
+                    span.textContent = parts[0].trim();
+                    const desc = document.createElement('span');
+                    desc.className = 'tip-desc';
+                    desc.textContent = parts[1].trim();
+                    row.appendChild(span);
+                    row.appendChild(desc);
+                } else {
+                    span.className = 'tip-desc';
+                    span.textContent = line;
+                    span.style.gridColumn = 'span 2';
+                    row.appendChild(span);
+                }
+                tip.appendChild(row);
+            }
+            tip.style.display = 'block';
+            const rect = icon.getBoundingClientRect();
+            let left = rect.left + rect.width / 2;
+            let top = rect.top - 12;
+            const tw = tip.offsetWidth;
+            const pad = 10;
+            if (left - tw / 2 < pad) left = pad + tw / 2;
+            if (left + tw / 2 > window.innerWidth - pad) left = window.innerWidth - pad - tw / 2;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+            tip.style.transform = 'translateX(-50%) translateY(-100%)';
+        });
+        icon.addEventListener('mouseleave', () => {
+            tip.style.display = 'none';
+        });
+    });
+}
+
+function debugDiagnostics() {
+    try {
+        console.groupCollapsed('MWI Debug Diagnostics');
+        console.log('window.GAME_DATA_STATIC defined:', typeof window.GAME_DATA_STATIC !== 'undefined');
+        if (typeof window.GAME_DATA_STATIC !== 'undefined') {
+            const gd = window.GAME_DATA_STATIC;
+            console.log('Game data version:', gd.version || '(no version)');
+            console.log('Number of items:', gd.items ? Object.keys(gd.items).length : 0);
+            console.log('Number of recipes:', gd.recipes ? Object.keys(gd.recipes).length : 0);
+            console.log('Constants present:', gd.constants ? Object.keys(gd.constants) : []);
+        }
+
+        console.log('marketData present:', !!marketData, marketData && Object.keys(marketData.market || {}).length);
+
+        console.log('PriceResolver:', typeof PriceResolver !== 'undefined');
+        console.log('ItemResolver:', typeof ItemResolver !== 'undefined');
+        console.log('EnhanceCalculator:', typeof EnhanceCalculator !== 'undefined');
+
+        if (typeof PriceResolver !== 'undefined' && typeof ItemResolver !== 'undefined' && typeof EnhanceCalculator !== 'undefined') {
+            try {
+                const gd = window.GAME_DATA_STATIC || {};
+                const firstHrid = gd.items ? Object.keys(gd.items).find(h => gd.items[h].enhancementCosts) : null;
+                if (firstHrid) {
+                    console.log('Found enhanceable item for test:', firstHrid);
+                    const item = gd.items[firstHrid];
+                    const itemRes = new ItemResolver(gd);
+                    const priceRes = new PriceResolver(gd);
+                    const shopping = itemRes.resolve(firstHrid, 8);
+                    console.log('Shopping list sample:', shopping);
+                    const resolved = priceRes.resolve(shopping, marketData.market || {}, { matMode: 'pessimistic', protMode: 'pessimistic', sellMode: 'midpoint' }, 1.0);
+                    console.log('Resolved prices sample:', resolved);
+                    const calc = new EnhanceCalculator(gd, {});
+                    const sim = calc.simulate(resolved, 8, item.level || 1);
+                    console.log('Simulation result sample:', sim);
+                } else {
+                    console.warn('No enhanceable item found in game data for headless test.');
+                }
+            } catch (err) {
+                console.error('Headless test error:', err);
+            }
+        }
+
+        console.groupEnd();
+    } catch (e) {
+        console.error('Diagnostics failed:', e);
+    }
+}

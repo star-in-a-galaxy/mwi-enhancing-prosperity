@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MWI Enhancing Prosperity</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --bg-raised: rgba(255,255,255,0.05);
+            --bg-surface: rgba(0,0,0,0.3);
+            --bg-input: rgba(0,0,0,0.3);
+            --text: #e8e8e8;
+            --text-secondary: #aaa;
+            --text-muted: #888;
+            --text-inverse: #1a1a2e;
+            --accent: #eeb357;
+            --accent-bg: rgba(238,179,87,0.15);
+            --accent-bg-hover: rgba(238,179,87,0.25);
+            --accent-border: rgba(238,179,87,0.3);
+            --border: rgba(255,255,255,0.1);
+            --profit: #51cf66;
+            --loss: #ff6b6b;
+            --table-hover: rgba(238,179,87,0.08);
+        }
+
+        [data-theme="light"] {
+            --bg: #f4efe9;
+            --bg-raised: rgba(0,0,0,0.03);
+            --bg-surface: #ffffff;
+            --bg-input: #ffffff;
+            --text: #2a2a3e;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --text-inverse: #ffffff;
+            --accent: #b8842a;
+            --accent-bg: rgba(184,132,42,0.10);
+            --accent-bg-hover: rgba(184,132,42,0.18);
+            --accent-border: rgba(184,132,42,0.3);
+            --border: rgba(0,0,0,0.10);
+            --profit: #2b8a3e;
+            --loss: #c92a2a;
+            --table-hover: rgba(184,132,42,0.06);
+        }
+
+        [data-theme="light"] #gearToggle,
+        [data-theme="light"] #themeToggle {
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        [data-theme="light"] #gearToggle:hover,
+        [data-theme="light"] #themeToggle:hover {
+            background: #fff;
+        }
+
+        [data-theme="light"] .gear-panel {
+            background: linear-gradient(135deg, rgba(244,239,233,0.97) 0%, rgba(255,255,255,0.97) 100%);
+            border-color: var(--accent-border);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 12px rgba(184,132,42,0.15);
+        }
+
+        [data-theme="light"] .gear-section {
+            border-bottom-color: var(--border);
+        }
+
+        [data-theme="light"] .gear-panel::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.06);
+        }
+
+        [data-theme="light"] .gear-panel::-webkit-scrollbar-thumb {
+            background: var(--accent-border);
+        }
+
+        [data-theme="light"] .gear-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        [data-theme="light"] .tea-row label {
+            background: rgba(0,0,0,0.04);
+            border-color: rgba(0,0,0,0.1);
+        }
+
+        [data-theme="light"] .tea-row label:hover {
+            background: rgba(0,0,0,0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .controls {
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sell-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        #dataInfo {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+
+        .sell-row .control-label {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .mode-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            position: relative;
+            padding-right: 80px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .control-group input,
+        .control-group select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0 6px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            height: 28px;
+            box-sizing: border-box;
+            transition: border-color 0.15s;
+        }
+
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-input);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            width: 36px;
+            height: 26px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            transition: all 0.2s;
+        }
+
+        .toggle-slider::before {
+            content: "";
+            position: absolute;
+            height: 15px;
+            width: 15px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(15px);
+            background: #fff;
+        }
+
+        .button {
+            background: var(--accent);
+            color: var(--text-inverse);
+            border: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            height: 32px;
+            transition: filter 0.15s;
+        }
+
+        .button:hover {
+            filter: brightness(1.1);
+        }
+
+        .sell-buttons {
+            display: flex;
+            gap: 4px;
+        }
+
+        .mode-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            height: 32px;
+            transition: all 0.15s;
+        }
+
+        .mode-btn:hover {
+            background: var(--bg-raised);
+            border-color: var(--accent-border);
+            color: var(--text);
+        }
+
+        .mode-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .filters-bar {
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 10px;
+        }
+
+        .filters-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        #gearToggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            background: rgba(18, 18, 34, 0.92);
+            color: var(--accent);
+            font-size: 1.05rem;
+            cursor: pointer;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+            z-index: 1100;
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+
+        #gearToggle:hover {
+            background: rgba(28, 28, 50, 0.96);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        #themeToggle {
+            position: fixed;
+            top: 16px;
+            left: 60px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--accent-border);
+            border-radius: 8px;
+            background: rgba(18, 18, 34, 0.92);
+            color: var(--accent);
+            font-size: 1.05rem;
+            cursor: pointer;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+            z-index: 1100;
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+
+        #themeToggle:hover {
+            background: rgba(28, 28, 50, 0.96);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            height: 20px;
+        }
+
+        .status.loading {
+            color: var(--accent);
+        }
+
+        .status.error {
+            color: var(--loss);
+        }
+
+        .status.success {
+            color: var(--profit);
+        }
+
+        table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            background: var(--bg-surface);
+            overflow: hidden;
+        }
+
+        th {
+            background: var(--accent-bg);
+            color: var(--accent);
+            padding: 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-bottom: 2px solid var(--accent-border);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            background: var(--accent-bg-hover);
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        tr:not(.detail-row):hover {
+            background: var(--table-hover);
+        }
+
+        .item-name {
+            font-weight: 500;
+            color: var(--profit);
+        }
+
+        .profit {
+            font-weight: 500;
+        }
+
+        .profit.positive {
+            color: var(--profit);
+        }
+
+        .profit.negative {
+            color: var(--loss);
+        }
+
+        .number {
+            font-family: 'SF Mono', Monaco, monospace;
+            text-align: right;
+        }
+
+        .table-container {
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        /* Gear Panel - Floating Window */
+        .gear-panel {
+            position: fixed;
+            top: 62px;
+            left: 16px;
+            width: 290px;
+            max-height: 82vh;
+            overflow-y: auto;
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 15, 30, 0.95) 100%);
+            border: 1px solid var(--accent-border);
+            border-radius: 10px;
+            padding: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 1050;
+            backdrop-filter: blur(8px);
+        }
+
+        .gear-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .gear-panel::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .gear-panel::-webkit-scrollbar-thumb {
+            background: var(--accent-border);
+            border-radius: 3px;
+        }
+
+        .gear-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        .gear-section {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .gear-section:last-child {
+            border-bottom: none;
+        }
+
+        .gear-section h3 {
+            color: var(--accent);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            margin: 0 0 3px 0;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .gr {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2px 6px;
+            align-items: center;
+            margin: 0;
+        }
+
+        .gr .gl {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.74rem;
+            white-space: nowrap;
+            min-height: 22px;
+        }
+
+        .gr .gl .gear-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            border-radius: 3px;
+            object-fit: contain;
+        }
+
+        .gr .gc {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .gr .gc input[type="number"],
+        .gr .gc select {
+            flex: 0 0 52px;
+            min-width: 42px;
+            height: 20px;
+            font-size: 0.72rem;
+            padding: 1px 4px;
+            background: var(--bg-input);
+            border: 1px solid var(--accent-border);
+            color: var(--text);
+            border-radius: 3px;
+        }
+
+        .gr .gc input[type="number"]:focus,
+        .gr .gc select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .gr .gc input[type="checkbox"] {
+            cursor: pointer;
+            margin: 0 2px 0 0;
+        }
+
+        .gr .gc .gear-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            border-radius: 2px;
+            object-fit: contain;
+        }
+
+        .gr .gc label {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 0.74rem;
+            cursor: pointer;
+        }
+
+        .tea-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px 4px;
+        }
+
+        .tea-row label {
+            display: flex;
+            align-items: center;
+            gap: 1px;
+            font-size: 0.68rem;
+            cursor: pointer;
+            padding: 1px 3px;
+            border-radius: 3px;
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+        }
+
+        .tea-row label:hover {
+            background: var(--accent-bg-hover);
+        }
+
+        .tea-row label .gear-icon {
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Expandable Rows */
+        table tbody tr.expandable {
+            cursor: pointer;
+        }
+
+        table tbody tr.expandable:hover {
+            background: var(--accent-bg);
+        }
+
+        table tbody tr.detail-row {
+            display: none;
+        }
+
+        table tbody tr.detail-row.expanded {
+            display: table-row;
+        }
+
+        .detail-content {
+            padding: 12px 16px;
+            background: var(--bg-surface);
+            margin: 6px 0;
+        }
+
+        .detail-grid-sections {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+        }
+
+        .detail-section {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        [data-theme="light"] .detail-section {
+            background: rgba(0,0,0,0.02);
+        }
+
+        .detail-section h4 {
+            color: var(--accent);
+            font-size: 0.8rem;
+            margin: 0 0 8px 0;
+            font-weight: 600;
+        }
+
+        .detail-lines {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--bg-surface);
+        }
+
+        .detail-line {
+            display: grid;
+            grid-template-columns: 1fr auto 20px;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            min-height: 24px;
+        }
+
+        .detail-line:last-child {
+            border-bottom: none;
+        }
+
+        .detail-line .left {
+            color: var(--text);
+        }
+        .detail-line .left.strong {
+            font-weight: 600;
+        }
+
+        .detail-line .right {
+            color: var(--accent);
+            font-family: 'SF Mono', Monaco, monospace;
+            white-space: nowrap;
+            text-align: right;
+        }
+        .detail-line .right.strong {
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .detail-line .right.profit-val {
+            color: var(--profit);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .detail-line .right.loss-val {
+            color: var(--loss);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .detail-line .detail-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Material rows (used in Enhance, Craft breakdown, Cost Summary) */
+        .mat-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto 20px;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            min-height: 22px;
+        }
+        .mat-row:last-child {
+            border-bottom: none;
+        }
+        .mat-row .mat-name {
+            color: var(--text);
+        }
+        .mat-row .mat-count {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .mat-row .mat-price {
+            color: var(--accent);
+            font-family: 'SF Mono', Monaco, monospace;
+            text-align: right;
+            white-space: nowrap;
+            min-width: 70px;
+        }
+        .mat-row .mat-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .mat-row.total-row {
+            border-top: 1px solid var(--accent-border);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .mat-row.total-row .mat-price {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Enhance panel */
+        .enhance-panel {
+            border-color: rgba(168,85,247,0.3);
+            background: rgba(168,85,247,0.04);
+        }
+        [data-theme="light"] .enhance-panel {
+            background: rgba(168,85,247,0.03);
+        }
+        .enhance-header {
+            background: rgba(168,85,247,0.12);
+            margin: -10px -12px 8px -12px;
+            padding: 8px 12px;
+            border-radius: 7px 7px 0 0;
+        }
+        .enhance-header h4 {
+            margin: 0;
+        }
+        .enhance-prot-row {
+            display: grid;
+            grid-template-columns: 1fr auto 20px;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+        }
+        .protect-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .protect-badge {
+            background: linear-gradient(135deg, rgba(168,85,247,0.5), rgba(126,34,206,0.5));
+            color: #fff;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .protect-count {
+            color: var(--accent);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+        }
+        .protect-name {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+        .protect-price {
+            color: var(--accent);
+            font-family: 'SF Mono', Monaco, monospace;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .enhance-mats-label {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 4px 10px 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* Shopping list */
+        .shopping-list {
+            border-color: rgba(34,197,94,0.3);
+            background: rgba(34,197,94,0.04);
+        }
+        [data-theme="light"] .shopping-list {
+            background: rgba(34,197,94,0.03);
+        }
+        .shop-header {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr auto;
+            gap: 6px;
+            padding: 3px 10px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .shop-header .shop-col {
+            text-align: right;
+        }
+        .shop-header .shop-col:first-child {
+            text-align: left;
+        }
+        .shop-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr auto;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            min-height: 22px;
+        }
+        .shop-row:last-child {
+            border-bottom: none;
+        }
+        .shop-row .shop-name {
+            color: var(--text);
+        }
+        .shop-row .shop-qty-text {
+            text-align: right;
+            font-family: 'SF Mono', Monaco, monospace;
+            color: var(--text);
+            font-size: 0.75rem;
+        }
+        .shop-row .shop-unit {
+            text-align: right;
+            font-family: 'SF Mono', Monaco, monospace;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+        }
+        .shop-row.total-row {
+            border-top: 1px solid var(--profit);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .shop-row.total-row .shop-qty-text,
+        .shop-row.total-row .shop-unit {
+            color: var(--text);
+        }
+
+        /* Craft breakdown */
+        .craft-breakdown {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        /* Cost summary divider */
+        .cost-summary-divider {
+            border-top: 1px solid var(--border);
+            margin: 10px 0;
+            padding: 0;
+        }
+
+        .price-tip {
+            cursor: help;
+            border-bottom: 1px dotted var(--text-muted);
+        }
+
+        .expand-indicator {
+            display: inline-block;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .filter-divider {
+            color: var(--text-muted);
+            margin: 0 8px;
+            align-self: center;
+        }
+
+        .filter-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 0.78rem;
+            height: 26px;
+            line-height: 1;
+        }
+
+        [data-theme="light"] .filter-btn {
+            background: var(--bg-input);
+            border-color: var(--border);
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent-border);
+            color: var(--text);
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-color: var(--accent);
+        }
+
+        .level-filter {
+            min-width: 32px;
+            text-align: center;
+            padding: 4px 6px;
+            font-size: 0.74rem;
+        }
+
+        .cost-filter[data-cost="100m"].active {
+            background: rgba(183, 177, 154, 0.6);
+            border-color: rgb(183, 177, 154);
+            color: #fff;
+        }
+
+        .cost-filter[data-cost="300m"].active {
+            background: rgba(48, 134, 171, 0.7);
+            border-color: rgb(48, 134, 171);
+            color: #fff;
+        }
+
+        .cost-filter[data-cost="1b"].active {
+            background: rgba(192, 132, 252, 0.6);
+            border-color: rgb(192, 132, 252);
+            color: #fff;
+        }
+
+        .cost-filter[data-cost="2b"].active {
+            background: rgba(250, 204, 21, 0.6);
+            border-color: rgb(250, 204, 21);
+            color: var(--text-inverse);
+        }
+
+        .cost-filter[data-cost="5b"].active {
+            background: rgba(255, 107, 107, 0.6);
+            border-color: rgb(255, 107, 107);
+            color: #fff;
+        }
+
+        .cost-filter[data-cost="over5b"].active {
+            background: rgba(177, 100, 37, 0.8);
+            border-color: rgb(177, 100, 37);
+            color: #fff;
+        }
+
+        .table-search-input {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            outline: none;
+            padding: 6px 10px;
+            transition: border-color 0.15s;
+        }
+
+        .table-search-input:focus {
+            border-color: var(--accent);
+            background: var(--bg-input);
+        }
+
+        .table-search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .sell-price-cell {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-end;
+            line-height: 1.3;
+        }
+
+        .price-diff {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        #dataInfoBar {
+            font-size: 0.82rem;
+            margin-bottom: 8px;
+        }
+
+        #resetBtn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 107, 107, 0.15);
+            border: 1px solid rgba(255, 107, 107, 0.35);
+            color: var(--loss);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            height: 24px;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+
+        #resetBtn:hover {
+            background: rgba(255, 107, 107, 0.3);
+        }
+
+        .mode-group {
+            display: flex;
+            gap: 3px;
+        }
+
+        .mode-group .mode-btn {
+            font-size: 0.78rem;
+            padding: 5px 10px;
+            height: 28px;
+        }
+
+        .hidden-select {
+            display: none;
+        }
+
+        .info-icon {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-bg);
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: help;
+            margin-left: 3px;
+            vertical-align: middle;
+            line-height: 1;
+            transition: background 0.15s;
+        }
+
+        .info-icon:hover {
+            background: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .tooltip {
+            display: none;
+            position: fixed;
+            background: var(--bg);
+            font-size: 0.78rem;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--accent-border);
+            border-left: 3px solid var(--accent);
+            max-width: 340px;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        .tip-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0 14px;
+            align-items: baseline;
+            line-height: 1.6;
+        }
+
+        .tip-label {
+            white-space: nowrap;
+            font-weight: 600;
+            color: var(--accent);
+            text-align: right;
+        }
+
+        .tip-desc {
+            color: var(--text);
+        }
+
+        .info-icon:hover {
+            background: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 6px 12px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .stats-bar .stat-item {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .stats-bar .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stats-bar .stat-value {
+            font-weight: 600;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+
+        .stats-bar .stat-value.positive {
+            color: var(--profit);
+        }
+
+        .stats-bar .stat-value.negative {
+            color: var(--loss);
+        }
+
+        .stats-bar .stat-value.neutral {
+            color: var(--text);
+        }
+
+        .stat-clickable {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 2px;
+            transition: color 0.15s;
+        }
+        .stat-clickable:hover {
+            color: var(--accent) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><img src="assets/enhancer_logo.svg" style="width:48px;height:48px;"> MWI Enhancing Prosperity</h1>
+
+        <div id="dataInfoBar"><span style="color:var(--text-muted);">Data:</span><span id="dataInfoValue" style="color:var(--text-secondary);"></span></div>
+
+        <div class="controls">
+            <div class="sell-row">
+                <span class="control-label">Sell at: <span class="info-icon" data-tip="Bid|safest (sell instantly)&#10;Bid+1|one tick above bid&#10;24hr Avg|average of bid &amp; ask&#10;Ask-1|one tick below ask&#10;Ask|best case (sell high)">?</span></span>
+                <div class="sell-buttons" id="sellModeButtons">
+                    <button class="mode-btn active" onclick="setSellMode('pessimistic')" data-mode="pessimistic">Bid</button>
+                    <button class="mode-btn" onclick="setSellMode('pessimistic+')" data-mode="pessimistic+">Bid+1</button>
+                    <button class="mode-btn" onclick="setSellMode('midpoint')" data-mode="midpoint">24hr Avg</button>
+                    <button class="mode-btn" onclick="setSellMode('optimistic-')" data-mode="optimistic-">Ask-1</button>
+                    <button class="mode-btn" onclick="setSellMode('optimistic')" data-mode="optimistic">Ask</button>
+                </div>
+            </div>
+            <div class="mode-row">
+                <div class="control-group">
+                    <label>Base Item Source <span class="info-icon" data-tip="Ask|buy price on market&#10;Bid|sell / patient price&#10;Craft|cost to craft it&#10;Best|cheapest of Ask &amp; Craft">?</span></label>
+                    <div class="mode-group" id="baseItemModeButtons">
+                        <button class="mode-btn active" onclick="setBaseItemMode('ask')" data-mode="ask">Ask</button>
+                        <button class="mode-btn" onclick="setBaseItemMode('bid')" data-mode="bid">Bid</button>
+                        <button class="mode-btn" onclick="setBaseItemMode('craft')" data-mode="craft">Craft</button>
+                        <button class="mode-btn" onclick="setBaseItemMode('best')" data-mode="best">Best</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>(R) Strategy <span class="info-icon" data-tip="Auto|chooses cheapest &#10;Buy (R)|buy directly at market&#10;Refine|acquire standard &amp; refine">?</span></label>
+                    <div class="mode-group" id="refineModeButtons">
+                        <button class="mode-btn active" onclick="setRefineMode('auto')" data-mode="auto">Auto</button>
+                        <button class="mode-btn" onclick="setRefineMode('buy-r')" data-mode="buy-r">Buy (R)</button>
+                        <button class="mode-btn" onclick="setRefineMode('refine')" data-mode="refine">Refine</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Enh Mat <span class="info-icon" data-tip="Ask| price used when buying enhancement materials&#10;Bid|price used when buying enhancement materials">?</span></label>
+                    <div class="mode-group" id="buyModeButtons">
+                        <button class="mode-btn active" onclick="setBuyMode('pessimistic')" data-mode="pessimistic">Ask</button>
+                        <button class="mode-btn" onclick="setBuyMode('optimistic')" data-mode="optimistic">Bid</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Craft Mat <span class="info-icon" data-tip="Ask| price used when buying crafting sub-materials&#10;Bid|price used when buying crafting sub-materials">?</span></label>
+                    <div class="mode-group" id="craftBuyModeButtons">
+                        <button class="mode-btn active" onclick="setCraftBuyMode('pessimistic')" data-mode="pessimistic">Ask</button>
+                        <button class="mode-btn" onclick="setCraftBuyMode('optimistic')" data-mode="optimistic">Bid</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Market Tax <span class="info-icon" data-tip="Toggles 2% market tax deduction from sale price">?</span></label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="marketFeeToggle" onchange="toggleMarketFee()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label>Crafting Depth <span class="info-icon" data-tip="How many upgrade levels to recursively craft&#10;0|buy upgrade item directly&#10;1-6|craft N levels deep&#10;All|max depth (10)">?</span></label>
+                    <select id="craftingDepth" onchange="onDepthChange()">
+                        <option value="all">All</option>
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Base Items <span class="info-icon" data-tip="When enabled, base resources (cheese, leather, fabric, logs, etc.) are always bought from market and not crafted. Their craft time is excluded from $/day⚒ calculations.">?</span></label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="skipBaseResourceCrafting" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label>No Eff. 1→1 <span class="info-icon" data-tip="When enabled, items crafted from a single input (upgrade chains like Chisel→Chisel→Chisel) ignore crafting efficiency bonus. Only speed bonus applies. For multi-input items (e.g. Magician's Hat with 50 Radiant Hats), efficiency still applies.">?</span></label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="ignoreCraftEfficiency" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <button class="button" onclick="calculateProfits()" id="calcBtn">Calculate</button>
+                <button id="resetBtn" onclick="resetSettings()">Reset</button>
+            </div>
+            <select id="buyMode" class="hidden-select">
+                <option value="pessimistic" selected>Ask</option>
+                <option value="optimistic">Bid</option>
+            </select>
+            <select id="craftBuyMode" class="hidden-select">
+                <option value="pessimistic" selected>Ask</option>
+                <option value="optimistic">Bid</option>
+            </select>
+            <select id="baseItemMode" class="hidden-select">
+                <option value="ask" selected>Ask</option>
+                <option value="bid">Bid</option>
+                <option value="craft">Craft</option>
+                <option value="best">Best</option>
+            </select>
+            <select id="refineMode" class="hidden-select">
+                <option value="auto" selected>Auto</option>
+                <option value="buy-r">Buy (R)</option>
+                <option value="refine">Refine</option>
+            </select>
+        </div>
+
+        <div class="filters-bar" id="filtersBar">
+            <div class="filters-row">
+                <span class="filter-label">Level:</span>
+                <button class="filter-btn level-filter active" data-level="all" onclick="filterLevel('all')">All</button>
+                <div id="levelFilters" style="display:inline-flex;gap:2px;flex-wrap:wrap;">
+                    <!-- Levels 1-20 generated by JS -->
+                </div>
+                <span class="filter-divider">|</span>
+                <span class="filter-label">Cost:</span>
+                <button class="filter-btn cost-filter active" data-cost="100m" onclick="toggleCostFilter('100m')">&lt;100M</button>
+                <button class="filter-btn cost-filter active" data-cost="300m" onclick="toggleCostFilter('300m')">100-300M</button>
+                <button class="filter-btn cost-filter active" data-cost="1b" onclick="toggleCostFilter('1b')">300M-1B</button>
+                <button class="filter-btn cost-filter active" data-cost="2b" onclick="toggleCostFilter('2b')">1-2B</button>
+                <button class="filter-btn cost-filter active" data-cost="5b" onclick="toggleCostFilter('5b')">2-5B</button>
+                <button class="filter-btn cost-filter active" data-cost="over5b" onclick="toggleCostFilter('over5b')">&gt;5B</button>
+                <span class="filter-divider">|</span>
+                <button class="filter-btn active" id="btn-hide-instant" onclick="toggleHideInstant()">Hide Instant</button>
+                <span class="filter-divider">|</span>
+                <label class="filter-label" style="display:inline-flex;align-items:center;gap:4px;cursor:default;">Min Vol:
+                    <input type="number" id="minVolumeInput" value="0" min="0" step="1" onchange="onMinVolumeChange()" style="width:48px;height:22px;padding:1px 4px;font-size:0.75rem;border-radius:4px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);">
+                </label>
+            </div>
+        </div>
+        <button id="gearToggle" onclick="toggleGearPanel()" title="Gear Settings">⚙</button>
+        <button id="themeToggle" onclick="toggleTheme()" title="Toggle theme">☀</button>
+
+        <!-- Gear Panel (collapsible) -->
+        <div id="gearPanel" class="gear-panel" style="display: none;">
+            <div class="gear-section">
+                <h3>⚡ ENHANCING</h3>
+                <div class="gr">
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancing.svg" onerror="this.style.display='none'" loading="lazy">Level</span>
+                    <span class="gc"><input type="number" id="enhancingLevel" value="110" min="0" max="300"> <span id="teaLevelDisplay" style="color:var(--profit);font-size:0.72rem;display:none;"></span></span>
+                    
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancing.svg" onerror="this.style.display='none'" loading="lazy">Observatory</span>
+                    <span class="gc"><input type="number" id="observatoryLevel" value="4" min="0" max="8"></span>
+                    
+                    <span class="gl"><span style="width:18px;display:inline-block"></span>Achiev. +0.2%</span>
+                    <span class="gc"><input type="checkbox" id="achievementBonus"></span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>⚔️ GEAR</h3>
+                <div class="gr">
+                    <span class="gl"><img class="gear-icon" id="enhancerIcon" src="assets/item_icons/Celestial_enhancer.svg" onerror="this.style.display='none'" loading="lazy">Enhancer</span>
+                    <span class="gc">
+                        <select id="enhancer" data-default="celestial_enhancer" style="flex:0 0 90px;min-width:70px;">
+                            <option value="celestial_enhancer">Celestial</option>
+                        </select>
+                        <select id="enhancerLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Enchanted_gloves.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="enchantedGlovesEquipped" checked> Gloves</span>
+                    <span class="gc">
+                        <select id="enchantedGlovesLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancers_top.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="enhancerTopEquipped"> Top</span>
+                    <span class="gc">
+                        <select id="enhancerTopLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancers_bottoms.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="enhancerBotEquipped"> Bottoms</span>
+                    <span class="gc">
+                        <select id="enhancerBotLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" id="necklaceIcon" src="assets/item_icons/Necklace_of_speed.svg" onerror="this.style.display='none'" loading="lazy">Necklace</span>
+                    <span class="gc">
+                        <select id="necklaceType" style="flex:0 0 80px;min-width:60px;">
+                            <option value="speed">Speed</option>
+                            <option value="philo">Philo</option>
+                            <option value="none">None</option>
+                        </select>
+                        <select id="necklaceLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Guzzling_pouch.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="guzzlingPouchEquipped" checked> Pouch</span>
+                    <span class="gc">
+                        <select id="guzzlingPouchLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" id="capeIcon" src="assets/item_icons/Chance_cape.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="capeEquipped" checked> Cape</span>
+                    <span class="gc">
+                        <select id="capeType" style="flex:0 0 72px;min-width:56px;">
+                            <option value="standard">Standard</option>
+                            <option value="refined">Refined</option>
+                        </select>
+                        <select id="capeLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>✨ CHARM</h3>
+                <div class="gr">
+                    <span class="gl">Charm</span>
+                    <span class="gc">
+                        <select id="charmTier" style="flex:0 0 80px;min-width:60px;">
+                            <option value="none">None</option>
+                        </select>
+                        <select id="charmLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>☕ ENHANCING TEAS</h3>
+                <div class="gr">
+                    <span class="tea-row" id="enhancingTeaRow" style="grid-column:1/-1">
+                        <label><img class="gear-icon" src="assets/item_icons/Enhancing_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="enh-tea" id="teaEnhancing">Standard</label>
+                        <label><img class="gear-icon" src="assets/item_icons/Super_enhancing_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="enh-tea" id="teaSuperEnhancing">Super</label>
+                        <label><img class="gear-icon" src="assets/item_icons/Ultra_enhancing_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="enh-tea" id="teaUltraEnhancing" checked="">Ultra</label>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Blessed_tea.svg" onerror="this.style.display='none'" loading="lazy">Blessed</span>
+                    <span class="gc"><input type="checkbox" id="teaBlessed" checked></span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Wisdom_tea.svg" onerror="this.style.display='none'" loading="lazy">Wisdom</span>
+                    <span class="gc"><input type="checkbox" id="wisdomTea" checked></span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>⚙️ SHARED PRODUCTION GEAR</h3>
+                <div class="gr">
+                    <span class="tea-row" id="craftingTeaRow" style="grid-column:1/-1">
+                        <label><img class="gear-icon" src="assets/item_icons/Crafting_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="craft-tea" id="craftingTeaEfficiency">Standard</label>
+                        <label><img class="gear-icon" src="assets/item_icons/Super_crafting_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="craft-tea" id="craftingTeaSuperEfficiency">Super</label>
+                        <label><img class="gear-icon" src="assets/item_icons/Ultra_crafting_tea.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" class="craft-tea" id="craftingTeaUltraEfficiency" checked="">Ultra</label>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Artisan_tea.svg" onerror="this.style.display='none'" loading="lazy">Artisan</span>
+                    <span class="gc"><input type="checkbox" id="artisanTea" checked></span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Wisdom_tea.svg" onerror="this.style.display='none'" loading="lazy">Wisdom</span>
+                    <span class="gc"><input type="checkbox" id="craftingWisdomTea" checked></span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Efficiency_tea.svg" onerror="this.style.display='none'" loading="lazy">Efficiency</span>
+                    <span class="gc"><input type="checkbox" id="craftingEfficiencyTea" checked></span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Eye_watch.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="eyeWatchEquipped" checked> Eye Watch</span>
+                    <span class="gc">
+                        <select id="eyeWatchLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" id="artificerCapeIcon" src="assets/item_icons/Artificer_cape.svg" onerror="this.style.display='none'" loading="lazy"><input type="checkbox" id="artificerCapeEquipped" checked> Cape</span>
+                    <span class="gc">
+                        <select id="artificerCapeType" style="flex:0 0 70px;min-width:60px;">
+                            <option value="standard">Std</option>
+                            <option value="refined">Ref</option>
+                        </select>
+                        <select id="artificerCapeLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>🧀 CHEESESMITHING</h3>
+                <div class="gr">
+                    <span class="gl">Level</span>
+                    <span class="gc"><input type="number" id="cheesesmithingLevel" value="100" min="0" max="300" style="width:48px;"></span>
+
+                    <span class="gl">🏠 Forge</span>
+                    <span class="gc"><input type="number" id="forgeLevel" value="0" min="0" max="8" style="width:48px;"></span>
+
+                    <span class="gl"><img class="gear-icon" id="cheesesmithingToolIcon" src="assets/item_icons/Holy_hammer.svg" onerror="this.style.display='none'" loading="lazy">Tool</span>
+                    <span class="gc">
+                        <select id="cheesesmithingTool" style="flex:0 0 90px;min-width:70px;">
+                            <option value="none">None</option>
+                            <option value="celestial">Celestial</option>
+                            <option value="holy" selected>Holy</option>
+                            <option value="rainbow">Rainbow</option>
+                            <option value="crimson">Crimson</option>
+                            <option value="burble">Burble</option>
+                            <option value="azure">Azure</option>
+                            <option value="verdant">Verdant</option>
+                            <option value="cheese">Cheese</option>
+                        </select>
+                        <select id="cheesesmithingToolLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Cheesemakers_top.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="cheesesmithingTopEquipped"> Top</span>
+                    <span class="gc">
+                        <select id="cheesesmithingTopLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Cheesemakers_bottoms.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="cheesesmithingBottomsEquipped"> Bottoms</span>
+                    <span class="gc">
+                        <select id="cheesesmithingBottomsLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>🔧 CRAFTING</h3>
+                <div class="gr">
+                    <span class="gl">Level</span>
+                    <span class="gc"><input type="number" id="craftingLevel" value="100" min="0" max="300" style="width:48px;"></span>
+
+                    <span class="gl">🏠 Workshop</span>
+                    <span class="gc"><input type="number" id="workshopLevel" value="0" min="0" max="8" style="width:48px;"></span>
+
+                    <span class="gl"><img class="gear-icon" id="craftingToolIcon" src="assets/item_icons/Holy_chisel.svg" onerror="this.style.display='none'" loading="lazy">Tool</span>
+                    <span class="gc">
+                        <select id="craftingTool" style="flex:0 0 90px;min-width:70px;">
+                            <option value="none">None</option>
+                            <option value="celestial">Celestial</option>
+                            <option value="holy" selected>Holy</option>
+                            <option value="rainbow">Rainbow</option>
+                            <option value="crimson">Crimson</option>
+                            <option value="burble">Burble</option>
+                            <option value="azure">Azure</option>
+                            <option value="verdant">Verdant</option>
+                            <option value="cheese">Cheese</option>
+                        </select>
+                        <select id="craftingToolLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Crafters_top.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="craftingTopEquipped"> Top</span>
+                    <span class="gc">
+                        <select id="craftingTopLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Crafters_bottoms.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="craftingBottomsEquipped"> Bottoms</span>
+                    <span class="gc">
+                        <select id="craftingBottomsLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>🧵 TAILORING</h3>
+                <div class="gr">
+                    <span class="gl">Level</span>
+                    <span class="gc"><input type="number" id="tailoringLevel" value="100" min="0" max="300" style="width:48px;"></span>
+
+                    <span class="gl">🏠 Sewing</span>
+                    <span class="gc"><input type="number" id="sewing_parlorLevel" value="0" min="0" max="8" style="width:48px;"></span>
+
+                    <span class="gl"><img class="gear-icon" id="tailoringToolIcon" src="assets/item_icons/Holy_needle.svg" onerror="this.style.display='none'" loading="lazy">Tool</span>
+                    <span class="gc">
+                        <select id="tailoringTool" style="flex:0 0 90px;min-width:70px;">
+                            <option value="none">None</option>
+                            <option value="celestial">Celestial</option>
+                            <option value="holy" selected>Holy</option>
+                            <option value="rainbow">Rainbow</option>
+                            <option value="crimson">Crimson</option>
+                            <option value="burble">Burble</option>
+                            <option value="azure">Azure</option>
+                            <option value="verdant">Verdant</option>
+                            <option value="cheese">Cheese</option>
+                        </select>
+                        <select id="tailoringToolLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Tailors_top.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="tailoringTopEquipped"> Top</span>
+                    <span class="gc">
+                        <select id="tailoringTopLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" src="assets/item_icons/Tailors_bottoms.svg" onerror="this.style.display='none'" loading="lazy">
+                        <input type="checkbox" id="tailoringBottomsEquipped"> Bottoms</span>
+                    <span class="gc">
+                        <select id="tailoringBottomsLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <div class="gear-section">
+                <h3>🌟 COMMUNITY BUFFS</h3>
+                <div class="gr">
+                    <span class="gl">Enh. Speed</span>
+                    <span class="gc"><select id="enhancingBuffLevel" style="flex:0 0 52px;min-width:42px;"><option value="0">0</option></select></span>
+                    
+                    <span class="gl">Experience</span>
+                    <span class="gc"><select id="experienceBuffLevel" style="flex:0 0 52px;min-width:42px;"><option value="0">0</option></select></span>
+                    
+                    <span class="gl">Production Eff.</span>
+                    <span class="gc"><select id="productionEfficiencyBuffLevel" style="flex:0 0 52px;min-width:42px;"><option value="0">0</option></select></span>
+                </div>
+            </div>
+
+            <div class="gear-section" id="bonusesSection">
+                <h3>📊 COMPUTED BONUSES</h3>
+                <div id="bonusesContent" style="font-size:0.7rem;color:var(--text-secondary);line-height:1.5;padding:2px 0;">
+                    <div>Enhance Succ Bonus: —</div>
+                    <div>Enhance Speed Bonus: —</div>
+                    <div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">* doesn't include level advantage</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-bar" id="statsBar"></div>
+
+        <div class="status" id="status"></div>
+
+        <div class="table-container">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th style="width:30px"></th>
+                        <th onclick="sortTable(0)" style="width:100px">
+                            <div style="display:flex;align-items:center;gap:2px;" onclick="event.stopPropagation()">
+                                <span>Item</span>
+                                <span style="flex-shrink:0;color:var(--text-muted);font-size:0.65rem;">🔍</span>
+                                <input class="table-search-input" id="searchInput" type="text" placeholder="Search" oninput="onSearchInput()" style="flex:1;min-width:30px;height:20px;font-size:0.7rem;padding:1px 4px;">
+                            </div>
+                        </th>
+                        <th onclick="sortTable(1)" style="width:55px">Level</th>
+                        <th onclick="sortTable(2)" style="width:80px">Using</th>
+                        <th onclick="sortTable(3)" class="number" style="width:100px">Base Cost</th>
+                        <th onclick="sortTable(4)" class="number" style="width:100px">Enh Mat Cost</th>
+                        <th onclick="sortTable(5)" class="number" style="width:65px">Mat ROI%</th>
+                        <th onclick="sortTable(6)" class="number" style="width:110px">Sell Price</th>
+                        <th onclick="sortTable(7)" class="number" style="width:65px">Vol 24h</th>
+                        <th onclick="sortTable(8)" class="number" style="width:80px">Profit</th>
+                        <th onclick="sortTable(9)" class="number" style="width:65px">ROI%</th>
+                        <th onclick="sortTable(10)" class="number" style="width:90px">$/day</th>
+                        <th onclick="sortTable(11)" class="number" style="width:85px">$/day⚒ <span class="info-icon" data-tip="Profit per day including crafting time&#10;⚒ = with crafting time factored in">&#9881;</span></th>
+                        <th onclick="sortTable(12)" class="number" style="width:60px">Time</th>
+                        <th onclick="sortTable(13)" class="number" style="width:65px">XP/day</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tooltip element -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- Game data -->
+    <script src="assets/game-data.js"></script>
+
+    <!-- Defaults -->
+    <script src="assets/defaults.js"></script>
+
+    <!-- Market data loader -->
+    <script src="assets/load-market-data.js"></script>
+
+    <!-- Calculation infrastructure -->
+    <script src="assets/enhance-calc.js"></script>
+    <script src="assets/item-resolver.js"></script>
+    <script src="assets/price-resolver.js"></script>
+
+    <!-- Split UI modules -->
+    <script src="assets/settings.js"></script>
+    <script src="assets/ui-format.js"></script>
+    <script src="assets/crafting-utils.js"></script>
+    <script src="assets/crafting-time.js"></script>
+    <script src="assets/calculator.js"></script>
+    <script src="assets/ui-controls.js"></script>
+    <script src="assets/ui-renderer.js"></script>
+
+    <!-- Main application (state + init) -->
+    <script src="main.js"></script>
+</body>
+</html>
