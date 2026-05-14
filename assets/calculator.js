@@ -182,6 +182,7 @@ async function calculateProfits() {
             sewing_parlorLevel: parseInt(document.getElementById('sewing_parlorLevel')?.value || '0'),
             skipBaseResourceCrafting: document.getElementById('skipBaseResourceCrafting')?.checked ?? true,
             ignoreCraftEfficiency: document.getElementById('ignoreCraftEfficiency')?.checked ?? true,
+            craftingDepth: getDepth(),
         };
 
         calculator = new EnhanceCalculator(gameData, config);
@@ -216,6 +217,9 @@ async function calculateAllProfitsAsync(config) {
 
     const artisanMult = calculator.getArtisanTeaMultiplier();
 
+    const isBest = config.craftingDepth === -1;
+    const depthsToTry = isBest ? [0, 1, 2, 3, 4, 5, 6] : [Math.max(0, Math.min(config.craftingDepth || 3, 6))];
+
     for (const [hrid, item] of Object.entries(gameData.items)) {
         if (!item.enhancementCosts) continue;
 
@@ -224,81 +228,104 @@ async function calculateAllProfitsAsync(config) {
                 const shopping = itemRes.resolve(hrid, level);
                 if (!shopping) continue;
 
-                const resolved = priceRes.resolve(shopping, marketData.market, modeConfig, artisanMult, baseItemMode, craftBuyMode, refineMode);
+                let bestResult = null;
+                let bestPerDay = -Infinity;
 
-                if (!resolved.basePrice || resolved.basePrice <= 0) continue;
+                for (const depth of depthsToTry) {
+                    const resolved = priceRes.resolve(shopping, marketData.market, modeConfig, artisanMult, baseItemMode, craftBuyMode, refineMode, depth);
 
-                const sellPrices = {};
-                let hasAnySell = false;
-                for (const sm of sellModes) {
-                    const sd = priceRes._resolveSellPrice(hrid, level, marketData.market, sm);
-                    sellPrices[sm] = { price: sd.price, actualMode: sd.actualMode, bid: sd.bid, ask: sd.ask };
-                    if (sd.price > 0) hasAnySell = true;
-                }
-                if (!hasAnySell) continue;
+                    if (!resolved.basePrice || resolved.basePrice <= 0) continue;
 
-                const enhance = calculator.simulate(resolved, level, item.level || 1);
-                if (!enhance) continue;
+                    const sellPrices = {};
+                    let hasAnySell = false;
+                    for (const sm of sellModes) {
+                        const sd = priceRes._resolveSellPrice(hrid, level, marketData.market, sm);
+                        sellPrices[sm] = { price: sd.price, actualMode: sd.actualMode, bid: sd.bid, ask: sd.ask };
+                        if (sd.price > 0) hasAnySell = true;
+                    }
+                    if (!hasAnySell) continue;
 
-                let refineStrategy = null;
-                if (hrid.includes('_refined') && resolved.baseSource === 'craft') {
-                    const stdHrid = hrid.replace('_refined', '');
-                    const cDepth = getDepth();
-                    const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, cDepth);
-                    if (craftData) {
-                        const stdItem = craftData.items.find(m => m.hrid === stdHrid);
-                        if (stdItem) {
-                            refineStrategy = stdItem.source === 'market' ? 'buy-refine' : 'craft-refine';
+                    const enhance = calculator.simulate(resolved, level, item.level || 1);
+                    if (!enhance) continue;
+
+                    let refineStrategy = null;
+                    if (hrid.includes('_refined') && resolved.baseSource === 'craft') {
+                        const stdHrid = hrid.replace('_refined', '');
+                        const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, depth, 0, false, 1, refineMode);
+                        if (craftData) {
+                            const stdItem = craftData.items.find(m => m.hrid === stdHrid);
+                            if (stdItem) {
+                                refineStrategy = stdItem.source === 'market' ? 'buy-refine' : 'craft-refine';
+                            }
                         }
                     }
+
+                    const totalCost = enhance.totalCost;
+                    const durationHours = (enhance.actions * enhance.attemptTime) / 3600;
+                    const durationDays = durationHours / 24;
+
+                    let craftingTimeInfo = null;
+                    let craftDays = 0;
+                    try {
+                        const depthConfig = Object.assign({}, config, { craftingDepth: depth });
+                        const craftCalc = new CraftingTimeCalculator(gameData);
+                        craftingTimeInfo = craftCalc.getCraftingTimeRecursive(hrid, depthConfig);
+                        if (craftingTimeInfo) {
+                            craftDays = craftingTimeInfo.totalCraftTime / 86400;
+                        }
+                    } catch (e) { console.warn('Craft time error for', hrid, e.message); }
+
+                    const itemMarket = marketData.market[hrid] || {};
+                    const levelData = itemMarket[String(level)] || {};
+                    const volume = (typeof levelData.v === 'number' && levelData.v > 0) ? levelData.v : 0;
+
+                    const result = {
+                        hrid,
+                        itemName: item.name || hrid.split('/').pop(),
+                        level,
+                        attempts: Math.round(enhance.actions * 100) / 100,
+                        protectAt: enhance.protectAt,
+                        protectCount: Math.round(enhance.protectCount * 100) / 100,
+                        protectPrice: Math.round(enhance.protectPrice || 0),
+                        protectHrid: enhance.protectHrid || null,
+                        basePrice: Math.round(enhance.basePrice),
+                        baseSource: enhance.baseSource || 'market',
+                        matCost: Math.round(enhance.matCost),
+                        totalCost: Math.round(totalCost),
+                        sellPrices,
+                        durationHours: Math.round(durationHours * 100) / 100,
+                        durationDays,
+                        xp: Math.round(enhance.totalXp),
+                        attemptTime: enhance.attemptTime,
+                        volume,
+                        _resolvedPrices: resolved,
+                        _buyMode: buyMode,
+                        _craftBuyMode: craftBuyMode,
+                        _baseItemMode: baseItemMode,
+                        _refineMode: refineMode,
+                        _refineStrategy: refineStrategy,
+                        _craftingTimeInfo: craftingTimeInfo,
+                        craftDays,
+                        _usedDepth: depth,
+                    };
+
+                    if (!isBest) {
+                        bestResult = result;
+                        break;
+                    }
+
+                    const selPrice = sellPrices.pessimistic?.price || sellPrices.optimistic?.price || 0;
+                    const profit = selPrice - totalCost;
+                    const cmpPerDay = (durationDays + craftDays) > 0 ? profit / (durationDays + craftDays) : 0;
+                    const wasBetter = cmpPerDay > bestPerDay;
+                    if (wasBetter) {
+                        bestPerDay = cmpPerDay;
+                        bestResult = result;
+                    }
+                    console.debug(`[Best] ${hrid}+${level} D${depth}: cost=${formatCoin(Math.round(totalCost))} craftDays=${(craftDays).toFixed(4)} profit=${formatCoin(Math.round(profit))} $/d=${formatCoin(Math.round(cmpPerDay))} pick=${wasBetter ? 'YES' : 'no'}`);
                 }
 
-                const totalCost = enhance.totalCost;
-                const durationHours = (enhance.actions * enhance.attemptTime) / 3600;
-                const durationDays = durationHours / 24;
-
-                let craftingTimeInfo = null;
-                let craftDays = 0;
-                try {
-                    const craftCalc = new CraftingTimeCalculator(gameData);
-                    craftingTimeInfo = craftCalc.getCraftingTimeRecursive(hrid, config);
-                    if (craftingTimeInfo) {
-                        craftDays = craftingTimeInfo.totalCraftTime / 86400;
-                    }
-                } catch (e) { console.warn('Craft time error for', hrid, e.message); }
-
-                const itemMarket = marketData.market[hrid] || {};
-                const levelData = itemMarket[String(level)] || {};
-                const volume = (typeof levelData.v === 'number' && levelData.v > 0) ? levelData.v : 0;
-
-                results.push({
-                    hrid,
-                    itemName: item.name || hrid.split('/').pop(),
-                    level,
-                    attempts: Math.round(enhance.actions * 100) / 100,
-                    protectAt: enhance.protectAt,
-                    protectCount: Math.round(enhance.protectCount * 100) / 100,
-                    protectPrice: Math.round(enhance.protectPrice || 0),
-                    protectHrid: enhance.protectHrid || null,
-                    basePrice: Math.round(enhance.basePrice),
-                    baseSource: enhance.baseSource || 'market',
-                    matCost: Math.round(enhance.matCost),
-                    totalCost: Math.round(totalCost),
-                    sellPrices,
-                    durationHours: Math.round(durationHours * 100) / 100,
-                    durationDays,
-                    xp: Math.round(enhance.totalXp),
-                    attemptTime: enhance.attemptTime,
-                    volume,
-                    _resolvedPrices: resolved,
-                    _buyMode: buyMode,
-                    _craftBuyMode: craftBuyMode,
-                    _baseItemMode: baseItemMode,
-                    _refineMode: refineMode,
-                    _refineStrategy: refineStrategy,
-                    _craftingTimeInfo: craftingTimeInfo,
-                    craftDays,
-                });
+                if (bestResult) results.push(bestResult);
             } catch (error) {
                 console.debug(`Error calculating ${hrid} +${level}:`, error.message);
             }

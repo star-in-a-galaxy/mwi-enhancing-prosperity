@@ -624,6 +624,8 @@ table tbody tr.detail-row.expanded {
     padding: 12px 16px;
     background: var(--bg-surface);
     margin: 6px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .detail-grid-sections {
@@ -665,6 +667,7 @@ table tbody tr.detail-row.expanded {
     border-bottom: 1px solid var(--border);
     font-size: 0.78rem;
     min-height: 24px;
+    min-width: 0;
 }
 
 .detail-line:last-child {
@@ -716,6 +719,7 @@ table tbody tr.detail-row.expanded {
     border-bottom: 1px solid var(--border);
     font-size: 0.78rem;
     min-height: 22px;
+    min-width: 0;
 }
 .mat-row:last-child {
     border-bottom: none;
@@ -851,6 +855,7 @@ table tbody tr.detail-row.expanded {
     border-bottom: 1px solid var(--border);
     font-size: 0.78rem;
     min-height: 22px;
+    min-width: 0;
 }
 .shop-row:last-child {
     border-bottom: none;

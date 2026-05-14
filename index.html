@@ -63,13 +63,14 @@
                     </label>
                 </div>
                 <div class="control-group">
-                    <label>Crafting Depth <span class="info-icon" data-tip="How many upgrade levels to recursively craft&#10;0|buy upgrade item directly&#10;1-6|craft N levels deep&#10;All|max depth (10)">?</span></label>
+                    <label>Crafting Depth <span class="info-icon" data-tip="How many upgrade levels to recursively craft&#10;Best|auto-pick best per item&#10;0|buy upgrade item directly&#10;1-6|craft N levels deep&#10;All|max depth (6)">?</span></label>
                     <select id="craftingDepth" onchange="onDepthChange()">
+                        <option value="best" selected>Best</option>
                         <option value="all">All</option>
                         <option value="0">0</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
-                        <option value="3" selected>3</option>
+                        <option value="3">3</option>
                         <option value="4">4</option>
                         <option value="5">5</option>
                         <option value="6">6</option>

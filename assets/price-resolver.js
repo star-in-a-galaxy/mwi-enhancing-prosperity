@@ -246,28 +246,43 @@ class PriceResolver {
      * Calculate crafting cost — width-first upgrade chain depth
      * @param {number} upgradeDepth - How far up the upgrade chain to recurse (0 = buy upgrade, don't craft it)
      */
+    _isBaseResource(hrid) {
+        const recipe = this.recipes[hrid];
+        if (!recipe || !recipe.baseTime) return false;
+        if (!recipe.inputs || recipe.inputs.length === 0) return true;
+        for (const inp of recipe.inputs) {
+            if (inp.item === '/items/coin') continue;
+            const sub = this.recipes[inp.item];
+            if (sub && sub.baseTime) return false;
+        }
+        if (recipe.upgrade) {
+            const upg = this.recipes[recipe.upgrade];
+            if (upg && upg.baseTime) return false;
+        }
+        return true;
+    }
+
     _getCraftingCost(hrid, marketPrices, artisanMult, craftBuyMode = BuyMode.PESSIMISTIC, upgradeDepth = 10, _totalDepth = 0) {
         if (_totalDepth > 20) return 0;
         if (hrid === '/items/coin') return 1;
 
-        const item = this.items[hrid];
-        if (!item) return 0;
-
-        const category = item.category || '';
-        if (category !== '/item_categories/equipment' && hrid !== '/items/philosophers_mirror') {
-            return 0;
-        }
-
         const recipe = this.recipes[hrid];
-        if (!recipe) return 0;
+        if (!recipe || !recipe.inputs) return 0;
+
+        const skipBaseE = typeof document !== 'undefined' ? document.getElementById('skipBaseResourceCrafting') : null;
+        const skipBase = skipBaseE ? skipBaseE.checked : true;
+        if (skipBase && this._isBaseResource(hrid)) return 0;
 
         let cost = 0;
 
-        // Materials always fully resolved (their own upgrade chains still checked)
+        // Materials — depth-aware craft comparison
         for (const input of (recipe.inputs || [])) {
             const count = input.count * artisanMult;
             let inputPrice = this._resolveBuyPrice(input.item, 0, marketPrices, craftBuyMode).price;
-            const inputCraft = this._getCraftingCost(input.item, marketPrices, artisanMult, craftBuyMode, upgradeDepth, _totalDepth + 1);
+            let inputCraft = 0;
+            if (upgradeDepth > 0) {
+                inputCraft = this._getCraftingCost(input.item, marketPrices, artisanMult, craftBuyMode, upgradeDepth - 1, _totalDepth + 1);
+            }
             
             if (inputPrice > 0 && inputCraft > 0) {
                 inputPrice = Math.min(inputPrice, inputCraft);
@@ -301,7 +316,7 @@ class PriceResolver {
     /**
      * Get item price — controlled by baseItemMode ('ask', 'bid', 'craft', 'best')
      */
-    _getItemPrice(hrid, enhLevel, marketPrices, artisanMult, baseItemMode = 'best', craftBuyMode = BuyMode.PESSIMISTIC, refineMode = 'auto') {
+    _getItemPrice(hrid, enhLevel, marketPrices, artisanMult, baseItemMode = 'best', craftBuyMode = BuyMode.PESSIMISTIC, refineMode = 'auto', craftingDepth = 10) {
         if (hrid === '/items/coin') return { price: 1, source: 'fixed' };
 
         if (hrid.includes('trainee') && hrid.includes('charm')) {
@@ -313,7 +328,7 @@ class PriceResolver {
         const bidPrice = marketRes.bid > 0 ? marketRes.bid : 0;
 
         if (enhLevel === 0) {
-            const craftingCost = this._getCraftingCost(hrid, marketPrices, artisanMult, craftBuyMode);
+            const craftingCost = this._getCraftingCost(hrid, marketPrices, artisanMult, craftBuyMode, craftingDepth);
 
             // refineMode overrides for (R) items
             if (hrid.includes('_refined') && refineMode === 'refine') {
@@ -353,7 +368,7 @@ class PriceResolver {
     /**
      * Resolve all prices for a shopping list
      */
-    resolve(shoppingList, marketPrices, modeConfig, artisanMult = 1.0, baseItemMode = 'best', craftBuyMode, refineMode = 'auto') {
+    resolve(shoppingList, marketPrices, modeConfig, artisanMult = 1.0, baseItemMode = 'best', craftBuyMode, refineMode = 'auto', craftingDepth = 10) {
         if (!craftBuyMode) craftBuyMode = matMode;
         const { matMode, protMode, sellMode } = modeConfig;
 
@@ -365,7 +380,7 @@ class PriceResolver {
             let price = detail.price;
             let source = 'market';
             
-            const craftCost = this._getCraftingCost(mat.hrid, marketPrices, artisanMult, craftBuyMode);
+            const craftCost = this._getCraftingCost(mat.hrid, marketPrices, artisanMult, craftBuyMode, craftingDepth);
             if (price > 0 && craftCost > 0 && craftCost < price) {
                 price = craftCost;
                 source = 'craft';
@@ -394,7 +409,7 @@ class PriceResolver {
         }
 
         const { price: basePrice, source: baseSource } = this._getItemPrice(
-            shoppingList.itemHrid, 0, marketPrices, artisanMult, baseItemMode, craftBuyMode, refineMode
+            shoppingList.itemHrid, 0, marketPrices, artisanMult, baseItemMode, craftBuyMode, refineMode, craftingDepth
         );
 
         let protectPrice = 0;
@@ -410,7 +425,7 @@ class PriceResolver {
                 price = detail.price;
                 
                 if (price <= 0) {
-                    const craftCost = this._getCraftingCost(opt.hrid, marketPrices, artisanMult, craftBuyMode);
+                    const craftCost = this._getCraftingCost(opt.hrid, marketPrices, artisanMult, craftBuyMode, craftingDepth);
                     if (craftCost > 0) {
                         price = craftCost;
                     } else {

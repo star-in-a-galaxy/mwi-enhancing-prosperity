@@ -76,6 +76,7 @@ function _collectGearSettings() {
         sewing_parlorLevel: g('sewing_parlorLevel'),
         skipBaseResourceCrafting: g('skipBaseResourceCrafting'),
         ignoreCraftEfficiency: g('ignoreCraftEfficiency'),
+        craftingDepth: (() => { const v = document.getElementById('craftingDepth')?.value; if (v === 'best') return -1; if (v === 'all') return 6; return parseInt(v) || 0; })(),
     };
 }
 
@@ -244,7 +245,11 @@ function loadSettings() {
 
         if (typeof s.craftingDepth === 'number') {
             const depthInput = document.getElementById('craftingDepth');
-            if (depthInput) depthInput.value = s.craftingDepth >= 6 ? 'all' : String(s.craftingDepth);
+            if (depthInput) {
+                if (s.craftingDepth === -1) depthInput.value = 'best';
+                else if (s.craftingDepth >= 6) depthInput.value = 'all';
+                else depthInput.value = String(s.craftingDepth);
+            }
         }
 
         if (s.activeLevels && s.activeLevels.length > 0) {
@@ -311,7 +316,11 @@ function resetSettings() {
     if (feeCb) feeCb.checked = D.marketFeePct > 0;
 
     const depthInput = document.getElementById('craftingDepth');
-    if (depthInput) depthInput.value = D.craftingDepth >= 6 ? 'all' : String(D.craftingDepth);
+    if (depthInput) {
+        if (D.craftingDepth === -1) depthInput.value = 'best';
+        else if (D.craftingDepth >= 6) depthInput.value = 'all';
+        else depthInput.value = String(D.craftingDepth);
+    }
 
     document.querySelectorAll('.level-filter').forEach(b => {
         const lvl = b.getAttribute('data-level');

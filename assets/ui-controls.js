@@ -83,8 +83,13 @@ function getDepth() {
     const el = document.getElementById('craftingDepth');
     const val = el?.value;
     if (val === 'all') return 6;
+    if (val === 'best') return -1;
     const n = parseInt(val);
     return isNaN(n) ? 3 : Math.min(Math.max(n, 0), 6);
+}
+
+function isBestDepth() {
+    return document.getElementById('craftingDepth')?.value === 'best';
 }
 
 function toggleMarketFee() {

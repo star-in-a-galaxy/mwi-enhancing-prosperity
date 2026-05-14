@@ -310,7 +310,7 @@ class CraftingTimeCalculator {
         };
     }
 
-    getCraftingTimeRecursive(itemHrid, config, visited = new Set(), ignoreEfficiency = false) {
+    getCraftingTimeRecursive(itemHrid, config, visited = new Set(), ignoreEfficiency = false, remainingDepth = null) {
         if (visited.has(itemHrid)) return null;
         visited.add(itemHrid);
 
@@ -323,7 +323,7 @@ class CraftingTimeCalculator {
         const craftInfo = this.getCraftingTime(itemHrid, config);
         if (!craftInfo) return null;
 
-        const shouldIgnoreEff = config.ignoreCraftEfficiency === true && (ignoreEfficiency || this.isSingleInputUpgrade(itemHrid));
+        const shouldIgnoreEff = config.ignoreCraftEfficiency === true && ignoreEfficiency;
         const effectiveTime = shouldIgnoreEff
             ? (craftInfo.baseTime / (1 + craftInfo.speedBonus / 100))
             : craftInfo.adjustedTime;
@@ -334,37 +334,43 @@ class CraftingTimeCalculator {
         let subCraftTime = 0;
         const subItems = [];
 
-        for (const input of (recipe.inputs || [])) {
-            if (input.item === '/items/coin') continue;
-            const subRecipe = this.recipes[input.item];
-            if (subRecipe && subRecipe.baseTime) {
-                if (skipBase && this.isBaseResource(input.item)) continue;
-                const propIgnoreEff = shouldIgnoreEff || this.isSingleInputUpgrade(input.item);
-                const subInfo = this.getCraftingTimeRecursive(input.item, config, new Set(visited), config.ignoreCraftEfficiency && propIgnoreEff);
-                if (subInfo) {
-                    const count = input.count * artisanMult;
-                    const needs = Math.ceil(count) / (subInfo.outputMultiplier || 1);
-                    const time = needs * subInfo.adjustedTime;
-                    subCraftTime += time;
-                    subItems.push({
-                        hrid: input.item,
-                        count: Math.ceil(count),
-                        neededCrafts: needs,
-                        craftTime: subInfo.adjustedTime,
-                        totalSubTime: time,
-                        skillId: subInfo.skillId,
-                    });
-                }
-            }
+        if (remainingDepth === null) {
+            remainingDepth = typeof config.craftingDepth === 'number' ? config.craftingDepth : 3;
         }
 
-        if (recipe.upgrade) {
-            const upgradeRecipe = this.recipes[recipe.upgrade];
-            if (upgradeRecipe && upgradeRecipe.baseTime) {
-                if (!(skipBase && this.isBaseResource(recipe.upgrade))) {
-                    const upgradeInfo = this.getCraftingTimeRecursive(recipe.upgrade, config, new Set(visited), config.ignoreCraftEfficiency && shouldIgnoreEff);
-                    if (upgradeInfo) {
-                        subCraftTime += upgradeInfo.totalCraftTime;
+        if (remainingDepth > 0) {
+            for (const input of (recipe.inputs || [])) {
+                if (input.item === '/items/coin') continue;
+                const subRecipe = this.recipes[input.item];
+                if (subRecipe && subRecipe.baseTime) {
+                    if (skipBase && this.isBaseResource(input.item)) continue;
+                    const subIgnoreEff = config.ignoreCraftEfficiency === true && input.count <= 1;
+                    const subInfo = this.getCraftingTimeRecursive(input.item, config, new Set(visited), subIgnoreEff, remainingDepth - 1);
+                    if (subInfo) {
+                        const count = input.count * artisanMult;
+                        const needs = Math.ceil(count) / (subInfo.outputMultiplier || 1);
+                        const time = needs * subInfo.totalCraftTime;
+                        subCraftTime += time;
+                        subItems.push({
+                            hrid: input.item,
+                            count: Math.ceil(count),
+                            neededCrafts: needs,
+                            craftTime: subInfo.adjustedTime,
+                            totalSubTime: time,
+                            skillId: subInfo.skillId,
+                        });
+                    }
+                }
+            }
+
+            if (recipe.upgrade) {
+                const upgradeRecipe = this.recipes[recipe.upgrade];
+                if (upgradeRecipe && upgradeRecipe.baseTime) {
+                    if (!(skipBase && this.isBaseResource(recipe.upgrade))) {
+                        const upgradeInfo = this.getCraftingTimeRecursive(recipe.upgrade, config, new Set(visited), config.ignoreCraftEfficiency && shouldIgnoreEff, remainingDepth - 1);
+                        if (upgradeInfo) {
+                            subCraftTime += upgradeInfo.totalCraftTime;
+                        }
                     }
                 }
             }

@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
     hideInstant: true,
     minVolume: 0,
     marketFeePct: 0,
-    craftingDepth: 3,
+    craftingDepth: -1,
 
     gear: {
         enhancingLevel: '110',

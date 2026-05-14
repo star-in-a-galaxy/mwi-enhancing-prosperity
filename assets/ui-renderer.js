@@ -112,8 +112,9 @@ function renderBaseItemSection(r) {
     const askPrice = marketAskRes.ask > 0 ? marketAskRes.ask : 0;
     const bidPrice = marketBidRes.bid > 0 ? marketBidRes.bid : 0;
 
-    const cDepth = getDepth();
-    const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, cDepth);
+    const cDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
+    const rMode = r._refineMode || document.getElementById('refineMode')?.value || 'auto';
+    const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, cDepth, 0, false, 1, rMode);
 
     let usedSource, usedPrice;
     if (baseItemMode === 'ask') {
@@ -188,19 +189,23 @@ function renderBaseItemSection(r) {
         function renderCraftItem(item, depth = 0) {
             const itemIcon = item.source === 'craft' ? '🔨' : '💰';
             let nameHtml = item.name;
-            if (item.depthLevel !== undefined) {
-                nameHtml += ` <span style="color:var(--text-muted);font-size:0.68rem;">[D:${item.depthLevel}]</span>`;
-            }
-            if (item.depthReached) {
-                nameHtml += ` <span style="color:#a855f7;font-size:0.68rem;">(depth reached)</span>`;
+            const isBase = skipBase && craftCalc.isBaseResource(item.hrid);
+            const showDepth = item.depthLevel !== undefined && item.source === 'craft' && !isBase;
+            if (showDepth) {
+                const dColor = item.depthReached ? '#a855f7' : 'var(--text-muted)';
+                nameHtml += ` <span style="color:${dColor};font-size:0.68rem;">[D:${item.depthLevel}]</span>`;
             }
             let totalTime = 0;
             let itemCraftTime = null;
-            const isBase = skipBase && craftCalc.isBaseResource(item.hrid);
             try { itemCraftTime = craftCalc.getCraftingTime(item.hrid, craftConfig); } catch (e) {}
             if (itemCraftTime && !isBase) {
-                totalTime = (item.count / itemCraftTime.outputMultiplier) * itemCraftTime.adjustedTime;
-                nameHtml += ` <span style="color:var(--text-muted);font-size:0.68rem;" title="per craft: ${itemCraftTime.adjustedTime.toFixed(1)}s, ×${itemCraftTime.outputMultiplier.toFixed(2)}">${formatSeconds(totalTime)}</span>`;
+                const isOneToOne = item.count <= 1.01;
+                const suppressEff = craftConfig.ignoreCraftEfficiency === true && isOneToOne;
+                const effTime = suppressEff ? itemCraftTime.baseTime / (1 + itemCraftTime.speedBonus / 100) : itemCraftTime.adjustedTime;
+                const effMult = suppressEff ? 1 : itemCraftTime.outputMultiplier;
+                totalTime = (item.count / effMult) * effTime;
+                nameHtml += ` <span style="color:var(--text-muted);font-size:0.68rem;" title="per craft: ${effTime.toFixed(1)}s, ×${effMult.toFixed(2)}">${formatSeconds(totalTime)}</span>`;
+                if (suppressEff) nameHtml += ` <span style="color:#f59e0b;font-size:0.68rem;">no eff.</span>`;
             }
             const pad = depth * 18;
             html += `<div class="mat-row" style="${depth > 0 ? 'font-size:0.72rem;color:var(--text-muted);' : ''}padding-left:${pad}px;">
@@ -264,6 +269,124 @@ function renderBaseItemSection(r) {
             <span class="mat-price">${formatCoin(usedPrice)}</span>
             <span class="mat-icon"></span>
         </div>`;
+    }
+
+    return html;
+}
+
+function _resolveDepthBasePrice(craftData, askPrice, bidPrice, baseItemMode, refineMode, hrid) {
+    let price;
+    if (baseItemMode === 'ask') {
+        price = askPrice;
+    } else if (baseItemMode === 'bid') {
+        price = bidPrice;
+    } else if (baseItemMode === 'craft') {
+        price = craftData?.total || 0;
+    } else {
+        const candidates = [];
+        if (askPrice > 0) candidates.push(askPrice);
+        if (craftData?.total > 0) candidates.push(craftData.total);
+        price = candidates.length > 0 ? Math.min(...candidates) : 0;
+    }
+
+    if (hrid.includes('_refined') && refineMode === 'refine') {
+        price = craftData?.total || 0;
+    } else if (hrid.includes('_refined') && refineMode === 'buy-r') {
+        if (askPrice > 0) price = askPrice;
+        else if (bidPrice > 0) price = bidPrice;
+    }
+
+    return price;
+}
+
+function renderDepthComparisons(r, sellPrice) {
+    const gd = window.GAME_DATA_STATIC || {};
+    const craftBuyMode = document.getElementById('craftBuyMode')?.value || 'pessimistic';
+    const baseItemMode = r._baseItemMode || 'best';
+    const refineMode = r._refineMode || 'auto';
+    const selectedDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
+    const craftConfig = _collectGearSettings();
+
+    const priceRes = new PriceResolver(gd);
+    const askRes = priceRes._resolveBuyPrice(r.hrid, 0, marketData.market, 'pessimistic');
+    const askPrice = askRes.ask > 0 ? askRes.ask : 0;
+    const bidRes = priceRes._resolveBuyPrice(r.hrid, 0, marketData.market, 'optimistic');
+    const bidPrice = bidRes.bid > 0 ? bidRes.bid : 0;
+
+    const maxDepth = 6;
+    // Fixed enhancement costs (mat + prot) — invariant across base item depth
+    const fixedCosts = r.totalCost - r.basePrice;
+
+    const comparisonRows = [];
+
+    for (let d = 0; d <= maxDepth; d++) {
+        const craftData = getCraftMaterials(r.hrid, craftBuyMode, baseItemMode, d, 0, false, 1, refineMode);
+        const depthConfig = Object.assign({}, craftConfig, { craftingDepth: d });
+        const craftCalc = new CraftingTimeCalculator(gd);
+
+        let craftTimeInfo = null;
+        try {
+            craftTimeInfo = craftCalc.getCraftingTimeRecursive(r.hrid, depthConfig);
+        } catch (e) {}
+
+        const basePrice = _resolveDepthBasePrice(craftData, askPrice, bidPrice, baseItemMode, refineMode, r.hrid);
+        const craftTime = craftTimeInfo?.totalCraftTime || 0;
+
+        // Each depth is computed independently
+        const totalCost = basePrice + fixedCosts;
+        const profit = sellPrice - totalCost;
+        const depthTotalDays = r.durationDays + craftTime / 86400;
+        const profitPerDay = depthTotalDays > 0 ? profit / depthTotalDays : 0;
+
+        comparisonRows.push({
+            depth: d,
+            craftPrice: basePrice,
+            craftTime,
+            profit,
+            profitPerDay,
+            isSelected: d === selectedDepth,
+            hasData: craftData !== null || craftTimeInfo !== null,
+        });
+    }
+
+    const anyData = comparisonRows.some(c => c.hasData);
+    if (!anyData) return '';
+    const uniquePrices = new Set(comparisonRows.map(c => c.craftPrice));
+    const uniqueTimes = new Set(comparisonRows.map(c => c.craftTime));
+    if (uniquePrices.size <= 1 && uniqueTimes.size <= 1) return '';
+
+    // Reference: selected depth's $/d for diff column
+    const selRow = comparisonRows.find(c => c.isSelected);
+    const selectedPerDay = selRow ? selRow.profitPerDay : 0;
+
+    let html = `<div class="detail-line" style="font-size:0.68rem;color:var(--text-secondary);border-top:1px solid var(--border);padding-top:3px;margin-top:2px;">
+        <span class="left">Craft depth</span>
+        <span class="right"></span>
+        <span class="detail-icon"></span>
+    </div>`;
+
+    for (const c of comparisonRows) {
+        const timeStr = c.craftTime > 0 ? formatSeconds(c.craftTime) : '—';
+        const priceStr = c.craftPrice > 0 ? formatCoin(Math.round(c.craftPrice)) : '—';
+
+        if (c.isSelected) {
+            html += `<div class="detail-line" style="font-size:0.71rem;color:var(--text);padding-left:8px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;">
+                <span class="left">D${c.depth} (selected): ${priceStr}</span>
+                <span class="right">${timeStr} | ${formatCoin(Math.round(c.profitPerDay))} $/d</span>
+                <span class="detail-icon"></span>
+            </div>`;
+        } else {
+            const perDayDiff = c.profitPerDay - selectedPerDay;
+            const diffStr = perDayDiff >= 0
+                ? `<span style="color:var(--profit);">+${formatCoin(Math.round(perDayDiff))}/d</span>`
+                : `<span style="color:var(--loss);">${formatCoin(Math.round(perDayDiff))}/d</span>`;
+            const marketLabel = c.craftPrice > 0 && c.craftTime === 0 ? ' (market)' : '';
+            html += `<div class="detail-line" style="font-size:0.71rem;color:var(--text-muted);padding-left:8px;">
+                <span class="left">D${c.depth}${marketLabel}: ${priceStr}</span>
+                <span class="right">${timeStr} | ${formatCoin(Math.round(c.profitPerDay))} $/d ${diffStr}</span>
+                <span class="detail-icon"></span>
+            </div>`;
+        }
     }
 
     return html;
@@ -355,7 +478,7 @@ function renderResults() {
             <td><span class="expand-indicator">▶</span></td>
             <td class="item-name"><img src="${hridToIconPath(r.hrid)}" onerror="this.style.display='none'" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;" loading="lazy">${r.itemName}</td>
             <td>+${r.level}</td>
-            <td>${getStrategyHtml(r)}</td>
+            <td>${getStrategyHtml(r)}${isBestDepth() && r._usedDepth !== undefined ? `<span style="color:var(--text-muted);font-size:0.65rem;"> D${r._usedDepth}</span>` : ''}</td>
             <td class="number">${formatCoin(r.basePrice)}</td>
             <td class="number">${formatCoin(r.matCost)}</td>
             <td class="number">${matRoi.toFixed(2)}%</td>
@@ -484,7 +607,8 @@ function renderResults() {
                                 <span class="left">Craft time</span>
                                 <span class="right">${formatSeconds(r._craftingTimeInfo.totalCraftTime)}${r._craftingTimeInfo ? ` (${r._craftingTimeInfo.skillId}, ×${r._craftingTimeInfo.outputMultiplier.toFixed(2)})${r._craftingTimeInfo.efficiencyIgnored ? ' <span style="color:#f59e0b;">no eff.</span>' : ''}` : ''}</span>
                                 <span class="detail-icon"></span>
-                            </div>` : ''}
+                            </div>
+                            ${renderDepthComparisons(r, sellPrice)}` : ''}
                             <div class="detail-line">
                                 <span class="left">Duration</span>
                                 <span class="right">${r.durationHours.toFixed(1)}h (${r.durationDays.toFixed(2)}d)</span>
