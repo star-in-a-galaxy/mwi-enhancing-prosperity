@@ -447,6 +447,8 @@ function renderResults() {
     });
 
     renderStats(filtered);
+    const profCount = filtered.filter(r => (getSellPrice(r) - r.totalCost) > 0).length;
+    updateStatus(`${filtered.length} items (${profCount} profitable)`, '');
 
     for (let i = 0; i < filtered.length; i++) {
         const r = filtered[i];

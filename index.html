@@ -90,7 +90,6 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <button class="button" onclick="calculateProfits()" id="calcBtn">Calculate</button>
                 <button id="resetBtn" onclick="resetSettings()">Reset</button>
             </div>
             <select id="buyMode" class="hidden-select">
@@ -142,11 +141,18 @@
 
         <!-- Gear Panel (collapsible) -->
         <div id="gearPanel" class="gear-panel" style="display: none;">
+            <div class="gear-panel-header">
+                <span style="font-weight:600;font-size:0.8rem;">⚙ Gear Settings</span>
+                <span style="display:flex;gap:4px;">
+                    <button id="resetGearBtn" onclick="resetGearSettings()" title="Reset gear to defaults" style="font-size:0.72rem;padding:2px 8px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;">Reset</button>
+                    <button id="pauseAutoCalcBtn" class="filter-btn active" onclick="toggleAutoCalc()" title="Pause auto-calculation while changing gear" style="font-size:0.72rem;padding:2px 10px;">Recalc: Immediate</button>
+                </span>
+            </div>
             <div class="gear-section">
                 <h3>⚡ ENHANCING</h3>
                 <div class="gr">
                     <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancing.svg" onerror="this.style.display='none'" loading="lazy">Level</span>
-                    <span class="gc"><input type="number" id="enhancingLevel" value="110" min="0" max="300"> <span id="teaLevelDisplay" style="color:var(--profit);font-size:0.72rem;display:none;"></span></span>
+                    <span class="gc"><span id="teaLevelDisplay" style="color:var(--profit);font-size:0.72rem;display:none;"></span> <input type="number" id="enhancingLevel" value="110" min="0" max="300"></span>
                     
                     <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancing.svg" onerror="this.style.display='none'" loading="lazy">Observatory</span>
                     <span class="gc"><input type="number" id="observatoryLevel" value="4" min="0" max="8"></span>

@@ -49,7 +49,27 @@ function setRefineMode(mode) {
 
 function toggleGearPanel() {
     const panel = document.getElementById('gearPanel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    const wasClosed = panel.style.display === 'none';
+    panel.style.display = wasClosed ? 'block' : 'none';
+    if (!wasClosed && autoCalcPaused) {
+        autoCalcPaused = false;
+        updateAutoCalcBtn();
+        scheduleRecalc();
+    }
+}
+
+function toggleAutoCalc() {
+    autoCalcPaused = !autoCalcPaused;
+    updateAutoCalcBtn();
+    if (!autoCalcPaused) scheduleRecalc();
+}
+
+function updateAutoCalcBtn() {
+    const btn = document.getElementById('pauseAutoCalcBtn');
+    if (btn) {
+        btn.textContent = autoCalcPaused ? 'Recalc: Paused' : 'Recalc: Immediate';
+        btn.classList.toggle('paused', autoCalcPaused);
+    }
 }
 
 function onSearchInput() {

@@ -3,9 +3,12 @@
  */
 
 let recalcTimer = null;
+let autoCalcPaused = false;
 
 function scheduleRecalc() {
+    if (autoCalcPaused) return;
     if (recalcTimer) clearTimeout(recalcTimer);
+    updateStatus('Calculating...', 'loading');
     recalcTimer = setTimeout(() => calculateProfits(), 300);
 }
 
@@ -86,19 +89,22 @@ function updateGearIcons() {
     }
 }
 
+function _parseLevel(id, def) {
+    const n = parseInt(document.getElementById(id).value);
+    return isNaN(n) ? def : n;
+}
+
 async function calculateProfits() {
     try {
-        const btn = document.getElementById('calcBtn');
-        btn.disabled = true;
-        updateStatus('Calculating profits...', 'loading');
+        updateStatus('Calculating...', 'loading');
 
         const necklaceType = document.getElementById('necklaceType').value;
         const charmTier = document.getElementById('charmTier').value;
         const config = {
-            enhancingLevel: parseInt(document.getElementById('enhancingLevel').value) || 110,
-            observatoryLevel: parseInt(document.getElementById('observatoryLevel').value) || 4,
+            enhancingLevel: _parseLevel('enhancingLevel', 110),
+            observatoryLevel: _parseLevel('observatoryLevel', 4),
             enhancer: document.getElementById('enhancer').value || 'celestial_enhancer',
-            enhancerLevel: parseInt(document.getElementById('enhancerLevel').value) || 8,
+            enhancerLevel: _parseLevel('enhancerLevel', 8),
 
             enchantedGlovesEquipped: document.getElementById('enchantedGlovesEquipped').checked,
             enchantedGlovesLevel: parseInt(document.getElementById('enchantedGlovesLevel').value) || 0,
@@ -144,27 +150,27 @@ async function calculateProfits() {
             baseItemMode: document.getElementById('baseItemMode').value || 'best',
             refineMode: document.getElementById('refineMode').value || 'auto',
 
-            cheesesmithingLevel: parseInt(document.getElementById('cheesesmithingLevel').value) || 100,
+            cheesesmithingLevel: _parseLevel('cheesesmithingLevel', 100),
             cheesesmithingTool: document.getElementById('cheesesmithingTool').value || 'none',
-            cheesesmithingToolLevel: parseInt(document.getElementById('cheesesmithingToolLevel').value) || 0,
+            cheesesmithingToolLevel: _parseLevel('cheesesmithingToolLevel', 0),
             cheesesmithingTopEquipped: document.getElementById('cheesesmithingTopEquipped').checked,
-            cheesesmithingTopLevel: parseInt(document.getElementById('cheesesmithingTopLevel').value) || 0,
+            cheesesmithingTopLevel: _parseLevel('cheesesmithingTopLevel', 0),
             cheesesmithingBottomsEquipped: document.getElementById('cheesesmithingBottomsEquipped').checked,
-            cheesesmithingBottomsLevel: parseInt(document.getElementById('cheesesmithingBottomsLevel').value) || 0,
-            craftingLevel: parseInt(document.getElementById('craftingLevel').value) || 100,
+            cheesesmithingBottomsLevel: _parseLevel('cheesesmithingBottomsLevel', 0),
+            craftingLevel: _parseLevel('craftingLevel', 100),
             craftingTool: document.getElementById('craftingTool').value || 'none',
-            craftingToolLevel: parseInt(document.getElementById('craftingToolLevel').value) || 0,
+            craftingToolLevel: _parseLevel('craftingToolLevel', 0),
             craftingTopEquipped: document.getElementById('craftingTopEquipped').checked,
-            craftingTopLevel: parseInt(document.getElementById('craftingTopLevel').value) || 0,
+            craftingTopLevel: _parseLevel('craftingTopLevel', 0),
             craftingBottomsEquipped: document.getElementById('craftingBottomsEquipped').checked,
-            craftingBottomsLevel: parseInt(document.getElementById('craftingBottomsLevel').value) || 0,
-            tailoringLevel: parseInt(document.getElementById('tailoringLevel').value) || 100,
+            craftingBottomsLevel: _parseLevel('craftingBottomsLevel', 0),
+            tailoringLevel: _parseLevel('tailoringLevel', 100),
             tailoringTool: document.getElementById('tailoringTool').value || 'none',
-            tailoringToolLevel: parseInt(document.getElementById('tailoringToolLevel').value) || 0,
+            tailoringToolLevel: _parseLevel('tailoringToolLevel', 0),
             tailoringTopEquipped: document.getElementById('tailoringTopEquipped').checked,
-            tailoringTopLevel: parseInt(document.getElementById('tailoringTopLevel').value) || 0,
+            tailoringTopLevel: _parseLevel('tailoringTopLevel', 0),
             tailoringBottomsEquipped: document.getElementById('tailoringBottomsEquipped').checked,
-            tailoringBottomsLevel: parseInt(document.getElementById('tailoringBottomsLevel').value) || 0,
+            tailoringBottomsLevel: _parseLevel('tailoringBottomsLevel', 0),
 
             craftingTeaEfficiency: document.getElementById('craftingTeaEfficiency')?.checked ?? false,
             craftingTeaSuperEfficiency: document.getElementById('craftingTeaSuperEfficiency')?.checked ?? false,
@@ -191,12 +197,9 @@ async function calculateProfits() {
 
         reSort();
         refreshBonuses();
-        updateStatus(`Calculated ${allResults.length} profitable enhancements`, 'success');
-        btn.disabled = false;
     } catch (error) {
         console.error('Calculation error:', error);
         updateStatus(`Error: ${error.message}`, 'error');
-        document.getElementById('calcBtn').disabled = false;
     }
 }
 
@@ -219,6 +222,9 @@ async function calculateAllProfitsAsync(config) {
 
     const isBest = config.craftingDepth === -1;
     const depthsToTry = isBest ? [0, 1, 2, 3, 4, 5, 6] : [Math.max(0, Math.min(config.craftingDepth || 3, 6))];
+
+    const craftCalc = new CraftingTimeCalculator(gameData);
+    const craftTimeCache = new Map();
 
     for (const [hrid, item] of Object.entries(gameData.items)) {
         if (!item.enhancementCosts) continue;
@@ -267,9 +273,14 @@ async function calculateAllProfitsAsync(config) {
                     let craftingTimeInfo = null;
                     let craftDays = 0;
                     try {
-                        const depthConfig = Object.assign({}, config, { craftingDepth: depth });
-                        const craftCalc = new CraftingTimeCalculator(gameData);
-                        craftingTimeInfo = craftCalc.getCraftingTimeRecursive(hrid, depthConfig);
+                        const cacheKey = `${hrid}|${depth}`;
+                        if (craftTimeCache.has(cacheKey)) {
+                            craftingTimeInfo = craftTimeCache.get(cacheKey);
+                        } else {
+                            const depthConfig = Object.assign({}, config, { craftingDepth: depth });
+                            craftingTimeInfo = craftCalc.getCraftingTimeRecursive(hrid, depthConfig);
+                            craftTimeCache.set(cacheKey, craftingTimeInfo);
+                        }
                         if (craftingTimeInfo) {
                             craftDays = craftingTimeInfo.totalCraftTime / 86400;
                         }

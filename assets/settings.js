@@ -331,7 +331,13 @@ function resetSettings() {
         }
     });
 
-    _applyGearSettings(D.gear);
+    saveSettings();
+    scheduleRecalc();
+}
+
+function resetGearSettings() {
+    const D = DEFAULT_SETTINGS.gear;
+    _applyGearSettings(D);
     updateGearIcons();
     updateTeaLevelDisplay();
     saveSettings();
