@@ -4,7 +4,7 @@ Calculate profits and ROI for item enhancing in Milky Way Idle. Live prices from
 
 ## Usage
 
-Open the [live site](https://star-in-a-galaxy.github.io/mwi-enhancing-profiteer/) or serve locally:
+Open the [live site](https://star-in-a-galaxy.github.io/mwi-enhancing-prosperity/) or serve locally:
 
 ```bash
 python -m http.server 8000
