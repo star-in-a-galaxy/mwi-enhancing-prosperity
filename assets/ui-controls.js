@@ -115,7 +115,7 @@ function isBestDepth() {
 function toggleMarketFee() {
     marketFeePct = document.getElementById('marketFeeToggle').checked ? 2 : 0;
     saveSettings();
-    renderResults();
+    reSort();
 }
 
 function onDepthChange() {
@@ -188,7 +188,8 @@ function toggleTheme() {
 function setupTooltips() {
     const tip = document.getElementById('tooltip');
     if (!tip) return;
-    document.querySelectorAll('.info-icon').forEach(icon => {
+    document.querySelectorAll('.info-icon:not([data-bound])').forEach(icon => {
+        icon.setAttribute('data-bound', 'true');
         icon.addEventListener('mouseenter', () => {
             const text = icon.getAttribute('data-tip');
             if (!text) { tip.style.display = 'none'; return; }

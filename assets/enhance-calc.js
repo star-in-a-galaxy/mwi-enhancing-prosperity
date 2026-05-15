@@ -54,6 +54,7 @@ const DEFAULT_CONFIG = {
 
 class EnhanceCalculator {
     constructor(gameData, config = DEFAULT_CONFIG) {
+        this.gameData = gameData;
         this.items = gameData.items || {};
         this.recipes = gameData.recipes || {};
         this.constants = gameData.constants || {};
@@ -279,7 +280,134 @@ class EnhanceCalculator {
             xpBonus += 0.195 + this.config.experienceBuffLevel * 0.005;
         }
         
+        // House rooms wisdom (0.1% per cumulative level)
+        xpBonus += this._getHouseWisdomBonus();
+        
         return baseXp * (1 + xpBonus);
+    }
+    
+    // Calculate total Rare Find multiplier from gear (multiplicative)
+    // Returns the multiplier to apply to base drop rates (e.g., 1.15 for +15%)
+    getRareFindMultiplier() {
+        let multiplier = 1.0;
+        
+        // Enhancer tool rare find (1x scaling)
+        if (this.config.enhancerEquipped !== false && this.config.enhancer) {
+            const enhancerHrid = `/items/${this.config.enhancer}`;
+            const base = this._getNoncombatStat(enhancerHrid, 'enhancingRareFind');
+            const level = Math.max(0, this.config.enhancerLevel || 0);
+            if (base) {
+                multiplier *= (1 + base * this.enhanceBonus[level]);
+            }
+        }
+        
+        // Enhancer top rare find (1x scaling)
+        if (this.config.enhancerTopEquipped) {
+            const level = Math.max(0, this.config.enhancerTopLevel || 0);
+            const base = this._getNoncombatStat('/items/enhancers_top', 'enhancingRareFind');
+            if (base) {
+                multiplier *= (1 + base * this.enhanceBonus[level]);
+            }
+        }
+        
+        // Ring rare find (5x accessory scaling)
+        if (this.config.ringType && this.config.ringType !== 'none') {
+            const level = Math.max(0, this.config.ringLevel || 0);
+            const bonus = (this.enhanceBonus[level] - 1) * 5 + 1;
+            if (this.config.ringType === 'rare' || this.config.ringType === 'philo') {
+                const base = this._getNoncombatStat(
+                    this.config.ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_rare_find',
+                    'skillingRareFind'
+                );
+                if (base) multiplier *= (1 + base * bonus);
+            }
+        }
+        
+        // Earrings rare find (5x accessory scaling)
+        if (this.config.earringsType && this.config.earringsType !== 'none') {
+            const level = Math.max(0, this.config.earringsLevel || 0);
+            const bonus = (this.enhanceBonus[level] - 1) * 5 + 1;
+            if (this.config.earringsType === 'rare' || this.config.earringsType === 'philo') {
+                const base = this._getNoncombatStat(
+                    this.config.earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_rare_find',
+                    'skillingRareFind'
+                );
+                if (base) multiplier *= (1 + base * bonus);
+            }
+        }
+        
+        // House rooms rare find (0.2% per level, multiplicative)
+        const houseRare = this._getHouseRareFindBonus();
+        if (houseRare > 0) {
+            multiplier *= (1 + houseRare);
+        }
+        
+        return multiplier;
+    }
+    
+    // Calculate total house room rare find multiplier
+    // All rooms give 0.2% rare find per level (generic)
+    _getHouseRareFindBonus() {
+        const total = (this.config.forgeLevel || 0) + (this.config.workshopLevel || 0)
+            + (this.config.sewing_parlorLevel || 0) + (this.config.otherHouseLevel || 0)
+            + (this.config.observatoryLevel || 0);
+        return total * 0.002;
+    }
+
+    // Calculate total house room wisdom (XP) bonus
+    // All houses give +0.05% wisdom per level (generic)
+    _getHouseWisdomBonus() {
+        const total = (this.config.forgeLevel || 0) + (this.config.workshopLevel || 0)
+            + (this.config.sewing_parlorLevel || 0) + (this.config.otherHouseLevel || 0)
+            + (this.config.observatoryLevel || 0);
+        return total * 0.0005;
+    }
+
+    // Calculate total Essence Find multiplier from gear (multiplicative)
+    getEssenceFindMultiplier() {
+        let multiplier = 1.0;
+        
+        // Ring essence find (5x accessory scaling)
+        if (this.config.ringType && this.config.ringType !== 'none') {
+            const level = Math.max(0, this.config.ringLevel || 0);
+            const bonus = (this.enhanceBonus[level] - 1) * 5 + 1;
+            if (this.config.ringType === 'essence' || this.config.ringType === 'philo') {
+                const base = this._getNoncombatStat(
+                    this.config.ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_essence_find',
+                    'skillingEssenceFind'
+                );
+                if (base) multiplier *= (1 + base * bonus);
+            }
+        }
+        
+        // Earrings essence find (5x accessory scaling)
+        if (this.config.earringsType && this.config.earringsType !== 'none') {
+            const level = Math.max(0, this.config.earringsLevel || 0);
+            const bonus = (this.enhanceBonus[level] - 1) * 5 + 1;
+            if (this.config.earringsType === 'essence' || this.config.earringsType === 'philo') {
+                const base = this._getNoncombatStat(
+                    this.config.earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_essence_find',
+                    'skillingEssenceFind'
+                );
+                if (base) multiplier *= (1 + base * bonus);
+            }
+        }
+        
+        return multiplier;
+    }
+    
+    // Get base essence drop rate for the current enhancer tool
+    // Returns rate as decimal (e.g., 0.3167 for 31.67%)
+    getBaseEssenceDropRate() {
+        const essenceDrops = this.gameData?.essenceDrops || {};
+        const toolName = this.config.enhancer || 'celestial_enhancer';
+        const drops = essenceDrops[toolName];
+        if (drops && drops.length > 0) {
+            return drops[0].rate;
+        }
+        // Fallback: use formula from Formulas.md
+        const itemLevel = 50; // default assumption
+        return 0.10 + (itemLevel / 1000);
     }
     
     // Matrix inversion using Gaussian elimination

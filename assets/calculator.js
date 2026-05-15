@@ -4,12 +4,42 @@
 
 let recalcTimer = null;
 let autoCalcPaused = false;
+let calcGen = 0;
 
 function scheduleRecalc() {
     if (autoCalcPaused) return;
     if (recalcTimer) clearTimeout(recalcTimer);
     updateStatus('Calculating...', 'loading');
-    recalcTimer = setTimeout(() => calculateProfits(), 300);
+    calcGen++;
+    const myGen = calcGen;
+    recalcTimer = setTimeout(() => calculateProfits(myGen), 300);
+}
+
+async function calculateProfits(gen) {
+    try {
+        updateStatus('Calculating...', 'loading');
+
+        const config = readGearConfig();
+
+        calculator = new EnhanceCalculator(gameData, config);
+
+        // Calculate rare find from gear
+        const gearRareFind = calculator.getRareFindMultiplier() - 1;
+        const gearEssenceFind = calculator.getEssenceFindMultiplier() - 1;
+        config.rareFindBonus = gearRareFind;
+        config.essenceFindBonus = gearEssenceFind;
+
+        const results = await calculateAllProfitsAsync(config);
+        if (gen !== undefined && gen !== calcGen) return; // stale result, discard
+
+        allResults = results;
+
+        reSort();
+        refreshBonuses();
+    } catch (error) {
+        console.error('Calculation error:', error);
+        updateStatus(`Error: ${error.message}`, 'error');
+    }
 }
 
 function updateTeaLevelDisplay() {
@@ -74,6 +104,28 @@ function updateGearIcons() {
         artificerCapeIcon.src = artificerCapeType === 'refined' ? 'assets/item_icons/Artificer_cape_refined.svg' : 'assets/item_icons/Artificer_cape.svg';
         artificerCapeIcon.style.display = '';
     }
+    const ringType = document.getElementById('ringType')?.value;
+    const ringIcon = document.getElementById('ringIcon');
+    if (ringIcon) {
+        if (ringType === 'none') {
+            ringIcon.style.display = 'none';
+        } else {
+            const map = { essence: 'Ring_of_essence_find', rare: 'Ring_of_rare_find', philo: 'Philosophers_ring' };
+            ringIcon.src = 'assets/item_icons/' + (map[ringType] || 'Ring_of_essence_find') + '.svg';
+            ringIcon.style.display = '';
+        }
+    }
+    const earringsType = document.getElementById('earringsType')?.value;
+    const earringsIcon = document.getElementById('earringsIcon');
+    if (earringsIcon) {
+        if (earringsType === 'none') {
+            earringsIcon.style.display = 'none';
+        } else {
+            const map = { essence: 'Earrings_of_essence_find', rare: 'Earrings_of_rare_find', philo: 'Philosophers_earrings' };
+            earringsIcon.src = 'assets/item_icons/' + (map[earringsType] || 'Earrings_of_essence_find') + '.svg';
+            earringsIcon.style.display = '';
+        }
+    }
     for (const skill of ['cheesesmithing', 'crafting', 'tailoring']) {
         const toolHrid = getCraftingToolHrid(skill);
         const iconId = skill + 'ToolIcon';
@@ -94,113 +146,123 @@ function _parseLevel(id, def) {
     return isNaN(n) ? def : n;
 }
 
-async function calculateProfits() {
-    try {
-        updateStatus('Calculating...', 'loading');
+function readGearConfig() {
+    const necklaceType = document.getElementById('necklaceType').value;
+    const charmTier = document.getElementById('charmTier').value;
+    return {
+        enhancingLevel: _parseLevel('enhancingLevel', 110),
+        observatoryLevel: _parseLevel('observatoryLevel', 4),
+        enhancer: document.getElementById('enhancer').value || 'celestial_enhancer',
+        enhancerLevel: _parseLevel('enhancerLevel', 8),
 
-        const necklaceType = document.getElementById('necklaceType').value;
-        const charmTier = document.getElementById('charmTier').value;
-        const config = {
-            enhancingLevel: _parseLevel('enhancingLevel', 110),
-            observatoryLevel: _parseLevel('observatoryLevel', 4),
-            enhancer: document.getElementById('enhancer').value || 'celestial_enhancer',
-            enhancerLevel: _parseLevel('enhancerLevel', 8),
+        enchantedGlovesEquipped: document.getElementById('enchantedGlovesEquipped').checked,
+        enchantedGlovesLevel: parseInt(document.getElementById('enchantedGlovesLevel').value) || 0,
+        guzzlingPouchEquipped: document.getElementById('guzzlingPouchEquipped').checked,
+        guzzlingPouchLevel: parseInt(document.getElementById('guzzlingPouchLevel').value) || 0,
+        enhancerTopEquipped: document.getElementById('enhancerTopEquipped').checked,
+        enhancerTopLevel: parseInt(document.getElementById('enhancerTopLevel').value) || 0,
+        enhancerBotEquipped: document.getElementById('enhancerBotEquipped').checked,
+        enhancerBotLevel: parseInt(document.getElementById('enhancerBotLevel').value) || 0,
 
-            enchantedGlovesEquipped: document.getElementById('enchantedGlovesEquipped').checked,
-            enchantedGlovesLevel: parseInt(document.getElementById('enchantedGlovesLevel').value) || 0,
-            guzzlingPouchEquipped: document.getElementById('guzzlingPouchEquipped').checked,
-            guzzlingPouchLevel: parseInt(document.getElementById('guzzlingPouchLevel').value) || 0,
-            enhancerTopEquipped: document.getElementById('enhancerTopEquipped').checked,
-            enhancerTopLevel: parseInt(document.getElementById('enhancerTopLevel').value) || 0,
-            enhancerBotEquipped: document.getElementById('enhancerBotEquipped').checked,
-            enhancerBotLevel: parseInt(document.getElementById('enhancerBotLevel').value) || 0,
+        philoNeckEquipped: necklaceType === 'philo',
+        philoNeckLevel: necklaceType === 'philo' ? _parseLevel('necklaceLevel', 0) : 0,
+        speedNeckEquipped: necklaceType === 'speed',
+        speedNeckLevel: necklaceType === 'speed' ? _parseLevel('necklaceLevel', 0) : 0,
 
-            philoNeckEquipped: necklaceType === 'philo',
-            philoNeckLevel: necklaceType === 'philo' ? parseInt(document.getElementById('necklaceLevel').value) || 0 : 0,
-            speedNeckEquipped: necklaceType === 'speed',
-            speedNeckLevel: necklaceType === 'speed' ? parseInt(document.getElementById('necklaceLevel').value) || 0 : 0,
+        ringType: document.getElementById('ringType').value || 'none',
+        ringLevel: _parseLevel('ringLevel', 0),
+        earringsType: document.getElementById('earringsType').value || 'none',
+        earringsLevel: _parseLevel('earringsLevel', 0),
 
-            capeEquipped: document.getElementById('capeEquipped').checked,
-            capeLevel: parseInt(document.getElementById('capeLevel').value) || 0,
-            capeRefined: document.getElementById('capeType').value === 'refined',
+        capeEquipped: document.getElementById('capeEquipped').checked,
+        capeLevel: parseInt(document.getElementById('capeLevel').value) || 0,
+        capeRefined: document.getElementById('capeType').value === 'refined',
 
-            artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
-            artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
-            artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
+        artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
+        artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
+        artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
 
-            charmEquipped: charmTier !== 'none',
-            charmTier: charmTier,
-            charmLevel: charmTier !== 'none' ? parseInt(document.getElementById('charmLevel').value) || 0 : 0,
+        charmEquipped: charmTier !== 'none',
+        charmTier: charmTier,
+        charmLevel: charmTier !== 'none' ? parseInt(document.getElementById('charmLevel').value) || 0 : 0,
 
-            teaEnhancing: document.getElementById('teaEnhancing').checked,
-            teaSuperEnhancing: document.getElementById('teaSuperEnhancing').checked,
-            teaUltraEnhancing: document.getElementById('teaUltraEnhancing').checked,
-            teaBlessed: document.getElementById('teaBlessed').checked,
-            teaWisdom: document.getElementById('wisdomTea').checked,
-            artisanTea: document.getElementById('artisanTea').checked,
+        teaEnhancing: document.getElementById('teaEnhancing').checked,
+        teaSuperEnhancing: document.getElementById('teaSuperEnhancing').checked,
+        teaUltraEnhancing: document.getElementById('teaUltraEnhancing').checked,
+        teaBlessed: document.getElementById('teaBlessed').checked,
+        teaWisdom: document.getElementById('wisdomTea').checked,
+        artisanTea: document.getElementById('artisanTea').checked,
 
-            achievementSuccessBonus: document.getElementById('achievementBonus').checked ? 0.2 : 0,
+        achievementSuccessBonus: document.getElementById('achievementBonus').checked ? 0.2 : 0,
 
-            enhancingBuffLevel: parseInt(document.getElementById('enhancingBuffLevel').value) || 0,
-            experienceBuffLevel: parseInt(document.getElementById('experienceBuffLevel').value) || 0,
-            productionEfficiencyBuffLevel: parseInt(document.getElementById('productionEfficiencyBuffLevel').value) || 0,
+        enhancingBuffLevel: parseInt(document.getElementById('enhancingBuffLevel').value) || 0,
+        experienceBuffLevel: parseInt(document.getElementById('experienceBuffLevel').value) || 0,
+        productionEfficiencyBuffLevel: parseInt(document.getElementById('productionEfficiencyBuffLevel').value) || 0,
 
-            buyMode: document.getElementById('buyMode').value || 'pessimistic',
-            craftBuyMode: document.getElementById('craftBuyMode').value || 'pessimistic',
-            baseItemMode: document.getElementById('baseItemMode').value || 'best',
-            refineMode: document.getElementById('refineMode').value || 'auto',
+        buyMode: document.getElementById('buyMode').value || 'pessimistic',
+        craftBuyMode: document.getElementById('craftBuyMode').value || 'pessimistic',
+        baseItemMode: document.getElementById('baseItemMode').value || 'best',
+        refineMode: document.getElementById('refineMode').value || 'auto',
 
-            cheesesmithingLevel: _parseLevel('cheesesmithingLevel', 100),
-            cheesesmithingTool: document.getElementById('cheesesmithingTool').value || 'none',
-            cheesesmithingToolLevel: _parseLevel('cheesesmithingToolLevel', 0),
-            cheesesmithingTopEquipped: document.getElementById('cheesesmithingTopEquipped').checked,
-            cheesesmithingTopLevel: _parseLevel('cheesesmithingTopLevel', 0),
-            cheesesmithingBottomsEquipped: document.getElementById('cheesesmithingBottomsEquipped').checked,
-            cheesesmithingBottomsLevel: _parseLevel('cheesesmithingBottomsLevel', 0),
-            craftingLevel: _parseLevel('craftingLevel', 100),
-            craftingTool: document.getElementById('craftingTool').value || 'none',
-            craftingToolLevel: _parseLevel('craftingToolLevel', 0),
-            craftingTopEquipped: document.getElementById('craftingTopEquipped').checked,
-            craftingTopLevel: _parseLevel('craftingTopLevel', 0),
-            craftingBottomsEquipped: document.getElementById('craftingBottomsEquipped').checked,
-            craftingBottomsLevel: _parseLevel('craftingBottomsLevel', 0),
-            tailoringLevel: _parseLevel('tailoringLevel', 100),
-            tailoringTool: document.getElementById('tailoringTool').value || 'none',
-            tailoringToolLevel: _parseLevel('tailoringToolLevel', 0),
-            tailoringTopEquipped: document.getElementById('tailoringTopEquipped').checked,
-            tailoringTopLevel: _parseLevel('tailoringTopLevel', 0),
-            tailoringBottomsEquipped: document.getElementById('tailoringBottomsEquipped').checked,
-            tailoringBottomsLevel: _parseLevel('tailoringBottomsLevel', 0),
+        cheesesmithingLevel: _parseLevel('cheesesmithingLevel', 100),
+        cheesesmithingTool: document.getElementById('cheesesmithingTool').value || 'none',
+        cheesesmithingToolLevel: _parseLevel('cheesesmithingToolLevel', 0),
+        cheesesmithingTopEquipped: document.getElementById('cheesesmithingTopEquipped').checked,
+        cheesesmithingTopLevel: _parseLevel('cheesesmithingTopLevel', 0),
+        cheesesmithingBottomsEquipped: document.getElementById('cheesesmithingBottomsEquipped').checked,
+        cheesesmithingBottomsLevel: _parseLevel('cheesesmithingBottomsLevel', 0),
+        craftingLevel: _parseLevel('craftingLevel', 100),
+        craftingTool: document.getElementById('craftingTool').value || 'none',
+        craftingToolLevel: _parseLevel('craftingToolLevel', 0),
+        craftingTopEquipped: document.getElementById('craftingTopEquipped').checked,
+        craftingTopLevel: _parseLevel('craftingTopLevel', 0),
+        craftingBottomsEquipped: document.getElementById('craftingBottomsEquipped').checked,
+        craftingBottomsLevel: _parseLevel('craftingBottomsLevel', 0),
+        tailoringLevel: _parseLevel('tailoringLevel', 100),
+        tailoringTool: document.getElementById('tailoringTool').value || 'none',
+        tailoringToolLevel: _parseLevel('tailoringToolLevel', 0),
+        tailoringTopEquipped: document.getElementById('tailoringTopEquipped').checked,
+        tailoringTopLevel: _parseLevel('tailoringTopLevel', 0),
+        tailoringBottomsEquipped: document.getElementById('tailoringBottomsEquipped').checked,
+        tailoringBottomsLevel: _parseLevel('tailoringBottomsLevel', 0),
 
-            craftingTeaEfficiency: document.getElementById('craftingTeaEfficiency')?.checked ?? false,
-            craftingTeaSuperEfficiency: document.getElementById('craftingTeaSuperEfficiency')?.checked ?? false,
-            craftingTeaUltraEfficiency: document.getElementById('craftingTeaUltraEfficiency')?.checked ?? false,
-            craftingEfficiencyTea: document.getElementById('craftingEfficiencyTea')?.checked ?? false,
-            craftingWisdomTea: document.getElementById('craftingWisdomTea')?.checked ?? false,
-            eyeWatchEquipped: document.getElementById('eyeWatchEquipped')?.checked ?? false,
-            eyeWatchLevel: parseInt(document.getElementById('eyeWatchLevel')?.value || '0'),
-            artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
-            artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
-            artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
+        craftingTeaEfficiency: document.getElementById('craftingTeaEfficiency')?.checked ?? false,
+        craftingTeaSuperEfficiency: document.getElementById('craftingTeaSuperEfficiency')?.checked ?? false,
+        craftingTeaUltraEfficiency: document.getElementById('craftingTeaUltraEfficiency')?.checked ?? false,
+        craftingEfficiencyTea: document.getElementById('craftingEfficiencyTea')?.checked ?? false,
+        craftingWisdomTea: document.getElementById('craftingWisdomTea')?.checked ?? false,
+        eyeWatchEquipped: document.getElementById('eyeWatchEquipped')?.checked ?? false,
+        eyeWatchLevel: parseInt(document.getElementById('eyeWatchLevel')?.value || '0'),
+        artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
+        artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
+        artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
 
-            forgeLevel: parseInt(document.getElementById('forgeLevel')?.value || '0'),
-            workshopLevel: parseInt(document.getElementById('workshopLevel')?.value || '0'),
-            sewing_parlorLevel: parseInt(document.getElementById('sewing_parlorLevel')?.value || '0'),
-            skipBaseResourceCrafting: document.getElementById('skipBaseResourceCrafting')?.checked ?? true,
-            ignoreCraftEfficiency: document.getElementById('ignoreCraftEfficiency')?.checked ?? true,
-            craftingDepth: getDepth(),
-        };
+        forgeLevel: parseInt(document.getElementById('forgeLevel')?.value || '0'),
+        workshopLevel: parseInt(document.getElementById('workshopLevel')?.value || '0'),
+        sewing_parlorLevel: parseInt(document.getElementById('sewing_parlorLevel')?.value || '0'),
+        otherHouseLevel: parseInt(document.getElementById('otherHouseLevel')?.value || '0'),
+        skipBaseResourceCrafting: document.getElementById('skipBaseResourceCrafting')?.checked ?? true,
+        ignoreCraftEfficiency: document.getElementById('ignoreCraftEfficiency')?.checked ?? true,
+        craftingDepth: getDepth(),
+        includeRareFind: document.getElementById('includeRareFind')?.checked ?? true,
+    };
+}
 
-        calculator = new EnhanceCalculator(gameData, config);
-
-        allResults = await calculateAllProfitsAsync(config);
-
-        reSort();
-        refreshBonuses();
-    } catch (error) {
-        console.error('Calculation error:', error);
-        updateStatus(`Error: ${error.message}`, 'error');
+function getArtisansCrateForItem(itemLevel) {
+    if (itemLevel >= 70) {
+        return { type: 'Large', hrid: '/items/large_artisans_crate' };
+    } else if (itemLevel >= 35) {
+        return { type: 'Medium', hrid: '/items/medium_artisans_crate' };
+    } else if (itemLevel >= 1) {
+        return { type: 'Small', hrid: '/items/small_artisans_crate' };
     }
+    return null;
+}
+
+function getArtisansCrateMultiplier(itemLevel) {
+    if (itemLevel < 35) return (itemLevel + 100) / 100;
+    if (itemLevel < 70) return (itemLevel + 65) / 150;
+    return (itemLevel + 30) / 200;
 }
 
 async function calculateAllProfitsAsync(config) {
@@ -221,7 +283,7 @@ async function calculateAllProfitsAsync(config) {
     const artisanMult = calculator.getArtisanTeaMultiplier();
 
     const isBest = config.craftingDepth === -1;
-    const depthsToTry = isBest ? [0, 1, 2, 3, 4, 5, 6] : [Math.max(0, Math.min(config.craftingDepth || 3, 6))];
+    const depthsToTry = isBest ? [0, 1, 2, 3, 4, 5, 6] : [Math.max(0, Math.min(config.craftingDepth ?? 3, 6))];
 
     const craftCalc = new CraftingTimeCalculator(gameData);
     const craftTimeCache = new Map();
@@ -286,6 +348,54 @@ async function calculateAllProfitsAsync(config) {
                         }
                     } catch (e) { console.warn('Craft time error for', hrid, e.message); }
 
+                    let essenceValue = 0;
+                    let crateValue = 0;
+                    let essenceChance = 0;
+                    let crateChance = 0;
+                    let crateType = '';
+                    if (config.includeRareFind) {
+                        const itemLevel = item.level || 1;
+                        const essenceFind = config.essenceFindBonus || 0;
+                        const rareFind = config.rareFindBonus || 0;
+
+                        // Essence drop formula from Formulas.md: 10% + (ItemLevel/10)%
+                        const essenceBaseRate = 0.10 + (itemLevel / 1000);
+                        essenceChance = essenceBaseRate * (1 + essenceFind);
+                        const essMarket = marketData?.market?.['/items/enhancing_essence'];
+                        let essPrice = 0;
+                        if (essMarket) {
+                            for (const lv of Object.keys(essMarket)) {
+                                const d = essMarket[lv];
+                                essPrice = d?.b || d?.a || 0;
+                                if (essPrice > 0) break;
+                            }
+                        }
+                        if (essPrice <= 0) essPrice = 50;
+                        essenceValue = essenceChance * essPrice;
+
+                        const crateInfo = getArtisansCrateForItem(itemLevel);
+                        if (crateInfo) {
+                            crateType = crateInfo.type;
+                            const multiplier = getArtisansCrateMultiplier(itemLevel);
+                            const baseRate = 12 / 14400;
+                            crateChance = baseRate * multiplier * (1 + rareFind);
+                            let cratePrice = priceRes._resolveBuyPrice(crateInfo.hrid, 0, marketData.market, BuyMode.OPTIMISTIC).price;
+                            if (cratePrice <= 0) {
+                                const crateMarket = marketData?.market?.[crateInfo.hrid];
+                                if (crateMarket) {
+                                    for (const lv of Object.keys(crateMarket)) {
+                                        cratePrice = priceRes._resolveBuyPrice(crateInfo.hrid, parseInt(lv), marketData.market, BuyMode.OPTIMISTIC).price;
+                                        if (cratePrice > 0) break;
+                                    }
+                                }
+                            }
+                            crateValue = crateChance * cratePrice;
+                        }
+                    }
+
+                    const rareFindValuePerAttempt = essenceValue + crateValue;
+                    const totalRareFindValue = rareFindValuePerAttempt * enhance.actions;
+
                     const itemMarket = marketData.market[hrid] || {};
                     const levelData = itemMarket[String(level)] || {};
                     const volume = (typeof levelData.v === 'number' && levelData.v > 0) ? levelData.v : 0;
@@ -309,6 +419,12 @@ async function calculateAllProfitsAsync(config) {
                         xp: Math.round(enhance.totalXp),
                         attemptTime: enhance.attemptTime,
                         volume,
+                        essenceChance: essenceChance,
+                        essenceValue: Math.round(essenceValue * enhance.actions),
+                        crateType: crateType,
+                        crateChance: crateChance,
+                        crateValue: Math.round(crateValue * enhance.actions),
+                        rareFindValue: Math.round(totalRareFindValue),
                         _resolvedPrices: resolved,
                         _buyMode: buyMode,
                         _craftBuyMode: craftBuyMode,
@@ -325,8 +441,11 @@ async function calculateAllProfitsAsync(config) {
                         break;
                     }
 
-                    const selPrice = sellPrices.pessimistic?.price || sellPrices.optimistic?.price || 0;
-                    const profit = selPrice - totalCost;
+                    const rawPrice = sellPrices.pessimistic?.price || sellPrices.optimistic?.price || 0;
+                    const feeCb = document.getElementById('marketFeeToggle');
+                    const feePct = feeCb?.checked ? 2 : 0;
+                    const selPrice = feePct > 0 ? Math.round(rawPrice * (1 - feePct / 100)) : rawPrice;
+                    const profit = selPrice + totalRareFindValue - totalCost;
                     const cmpPerDay = (durationDays + craftDays) > 0 ? profit / (durationDays + craftDays) : 0;
                     const wasBetter = cmpPerDay > bestPerDay;
                     if (wasBetter) {

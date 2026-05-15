@@ -23,6 +23,10 @@ function _collectGearSettings() {
         enhancerBotLevel: g('enhancerBotLevel'),
         necklaceType: g('necklaceType'),
         necklaceLevel: g('necklaceLevel'),
+        ringType: g('ringType'),
+        ringLevel: g('ringLevel'),
+        earringsType: g('earringsType'),
+        earringsLevel: g('earringsLevel'),
         guzzlingPouchEquipped: g('guzzlingPouchEquipped'),
         guzzlingPouchLevel: g('guzzlingPouchLevel'),
         capeEquipped: g('capeEquipped'),
@@ -74,8 +78,10 @@ function _collectGearSettings() {
         forgeLevel: g('forgeLevel'),
         workshopLevel: g('workshopLevel'),
         sewing_parlorLevel: g('sewing_parlorLevel'),
+        otherHouseLevel: g('otherHouseLevel'),
         skipBaseResourceCrafting: g('skipBaseResourceCrafting'),
         ignoreCraftEfficiency: g('ignoreCraftEfficiency'),
+        includeRareFind: g('includeRareFind'),
         craftingDepth: (() => { const v = document.getElementById('craftingDepth')?.value; if (v === 'best') return -1; if (v === 'all') return 6; return parseInt(v) || 0; })(),
     };
 }
@@ -100,6 +106,10 @@ function _applyGearSettings(s) {
     set('enhancerBotLevel', s.enhancerBotLevel ?? D.enhancerBotLevel);
     set('necklaceType', s.necklaceType ?? D.necklaceType);
     set('necklaceLevel', s.necklaceLevel ?? D.necklaceLevel);
+    set('ringType', s.ringType ?? D.ringType);
+    set('ringLevel', s.ringLevel ?? D.ringLevel);
+    set('earringsType', s.earringsType ?? D.earringsType);
+    set('earringsLevel', s.earringsLevel ?? D.earringsLevel);
     set('guzzlingPouchEquipped', s.guzzlingPouchEquipped ?? D.guzzlingPouchEquipped);
     set('guzzlingPouchLevel', s.guzzlingPouchLevel ?? D.guzzlingPouchLevel);
     set('capeEquipped', s.capeEquipped ?? D.capeEquipped);
@@ -151,8 +161,10 @@ function _applyGearSettings(s) {
     set('forgeLevel', s.forgeLevel ?? D.forgeLevel);
     set('workshopLevel', s.workshopLevel ?? D.workshopLevel);
     set('sewing_parlorLevel', s.sewing_parlorLevel ?? D.sewing_parlorLevel);
+    set('otherHouseLevel', s.otherHouseLevel ?? D.otherHouseLevel);
     set('skipBaseResourceCrafting', s.skipBaseResourceCrafting ?? D.skipBaseResourceCrafting);
     set('ignoreCraftEfficiency', s.ignoreCraftEfficiency ?? D.ignoreCraftEfficiency);
+    set('includeRareFind', s.includeRareFind ?? D.includeRareFind);
 }
 
 function saveSettings() {
@@ -347,7 +359,7 @@ function resetGearSettings() {
 function populateLevelSelects() {
     const selects = [
         'enhancerLevel', 'enchantedGlovesLevel', 'enhancerTopLevel', 'enhancerBotLevel',
-        'necklaceLevel', 'guzzlingPouchLevel', 'capeLevel', 'charmLevel',
+        'necklaceLevel', 'ringLevel', 'earringsLevel', 'guzzlingPouchLevel', 'capeLevel', 'charmLevel',
         'cheesesmithingToolLevel', 'cheesesmithingTopLevel', 'cheesesmithingBottomsLevel',
         'craftingToolLevel', 'craftingTopLevel', 'craftingBottomsLevel',
         'tailoringToolLevel', 'tailoringTopLevel', 'tailoringBottomsLevel',
@@ -448,6 +460,8 @@ function setupAutoCalc() {
         '#enhancerTopEquipped', '#enhancerTopLevel',
         '#enhancerBotEquipped', '#enhancerBotLevel',
         '#necklaceType', '#necklaceLevel',
+        '#ringType', '#ringLevel',
+        '#earringsType', '#earringsLevel',
         '#guzzlingPouchEquipped', '#guzzlingPouchLevel',
         '#capeEquipped', '#capeType', '#capeLevel',
         '#charmTier', '#charmLevel',
@@ -468,16 +482,24 @@ function setupAutoCalc() {
         '#tailoringLevel', '#tailoringTool', '#tailoringToolLevel',
         '#tailoringTopEquipped', '#tailoringTopLevel',
         '#tailoringBottomsEquipped', '#tailoringBottomsLevel',
-        '#forgeLevel', '#workshopLevel', '#sewing_parlorLevel',
+        '#forgeLevel', '#workshopLevel', '#sewing_parlorLevel', '#otherHouseLevel',
         '#skipBaseResourceCrafting',
         '#ignoreCraftEfficiency',
+        '#includeRareFind',
     ];
-    const onChange = () => { updateTeaLevelDisplay(); saveSettings(); scheduleRecalc(); };
+    const onChange = () => {
+        updateTeaLevelDisplay();
+        saveSettings();
+        const gd = window.GAME_DATA_STATIC;
+        if (gd) calculator = new EnhanceCalculator(gd, readGearConfig());
+        refreshBonuses();
+        scheduleRecalc();
+    };
     const onChangeWithIcons = () => { updateGearIcons(); onChange(); };
     for (const sel of selectors) {
         const el = document.querySelector(sel);
         if (!el) continue;
-        const handler = (sel === '#necklaceType' || sel === '#enhancer' || sel === '#capeType' || sel === '#artificerCapeType' || sel === '#cheesesmithingTool' || sel === '#craftingTool' || sel === '#tailoringTool') ? onChangeWithIcons : onChange;
+        const handler = (sel === '#necklaceType' || sel === '#enhancer' || sel === '#capeType' || sel === '#artificerCapeType' || sel === '#cheesesmithingTool' || sel === '#craftingTool' || sel === '#tailoringTool' || sel === '#ringType' || sel === '#earringsType') ? onChangeWithIcons : onChange;
         el.addEventListener('change', handler);
     }
 
