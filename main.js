@@ -52,7 +52,19 @@ function updateDataInfo(md) {
     el.textContent = `${timeStr} [${sourceLabel}] | Poll: ${pollStr}${volNote}`;
 }
 
+function updateCompanionStatus() {
+    const dot = document.getElementById('companionDot');
+    const text = document.getElementById('companionText');
+    const detected = document.documentElement.dataset.mwiCompanion === '1';
+    dot.className = `companion-dot ${detected ? 'active' : 'inactive'}`;
+    text.className = detected ? 'active' : 'inactive';
+    text.innerHTML = detected
+        ? 'Companion active'
+        : 'Install <a href="https://greasyfork.org/en/scripts/578303-mwi-enhancing-prosperity-companion" target="_blank" rel="noopener">Companion Script</a>';
+}
+
 async function initializeApp() {
+    updateCompanionStatus();
     try {
         updateStatus('Loading market data...', 'loading');
         marketData = await window.MARKET_DATA_READY;

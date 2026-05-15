@@ -739,7 +739,8 @@
         // Also try immediately (for document-start)
         installSocketListener();
     } else {
-        // Calculator page: inject import button into gear panel
+        // Calculator page: mark page for detection + inject import button
+        document.documentElement.dataset.mwiCompanion = '1';
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', injectImportButton);
         } else {

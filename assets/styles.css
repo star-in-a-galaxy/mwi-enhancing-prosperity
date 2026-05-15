@@ -100,13 +100,38 @@ body {
 h1 {
     color: var(--accent);
     font-size: 1.8rem;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
 }
+
+#companionStatus {
+    font-size: 0.78rem;
+    text-align: center;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.companion-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.companion-dot.active { background: #22c55e; }
+.companion-dot.inactive { background: #6b7280; }
+#companionText {
+    font-size: 0.78rem;
+}
+#companionText.active { color: #22c55e; }
+#companionText.inactive { color: var(--text-muted); }
+#companionText.inactive a { color: var(--accent); text-decoration: underline; }
 
 .controls {
     background: var(--bg-raised);
