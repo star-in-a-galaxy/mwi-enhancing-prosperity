@@ -10,6 +10,8 @@
     <div class="container">
         <h1><img src="assets/enhancer_logo.svg" style="width:48px;height:48px;"> MWI Enhancing Prosperity</h1>
 
+        <div id="companionStatus"><span class="companion-dot" id="companionDot"></span><span id="companionText">Checking...</span></div>
+
         <div id="dataInfoBar"><span style="color:var(--text-muted);">Data:</span><span id="dataInfoValue" style="color:var(--text-secondary);"></span></div>
 
         <div class="controls">
@@ -59,6 +61,13 @@
                     <label>Market Tax <span class="info-icon" data-tip="Toggles 2% market tax deduction from sale price">?</span></label>
                     <label class="toggle-switch">
                         <input type="checkbox" id="marketFeeToggle" onchange="toggleMarketFee()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label>Rare Find Profit <span class="info-icon" data-tip="Include essence & artisan crate value in total profit">?</span></label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="includeRareFind" checked onchange="scheduleRecalc()">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
@@ -156,7 +165,10 @@
                     
                     <span class="gl"><img class="gear-icon" src="assets/item_icons/Enhancing.svg" onerror="this.style.display='none'" loading="lazy">Observatory</span>
                     <span class="gc"><input type="number" id="observatoryLevel" value="4" min="0" max="8"></span>
-                    
+
+                    <span class="gl">🏠 Other (13 houses total)</span>
+                    <span class="gc"><input type="number" id="otherHouseLevel" value="0" min="0" max="104" style="width:48px;"></span>
+
                     <span class="gl"><span style="width:18px;display:inline-block"></span>Achiev. +0.2%</span>
                     <span class="gc"><input type="checkbox" id="achievementBonus"></span>
                 </div>
@@ -207,6 +219,32 @@
                             <option value="none">None</option>
                         </select>
                         <select id="necklaceLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" id="ringIcon" src="assets/item_icons/Ring_of_essence_find.svg" onerror="this.style.display='none'" loading="lazy">Ring</span>
+                    <span class="gc">
+                        <select id="ringType" style="flex:0 0 80px;min-width:60px;">
+                            <option value="essence">Essence</option>
+                            <option value="rare">Rare</option>
+                            <option value="philo">Philo</option>
+                            <option value="none">None</option>
+                        </select>
+                        <select id="ringLevel" style="flex:0 0 46px;min-width:36px;">
+                            <option value="0">0</option>
+                        </select>
+                    </span>
+
+                    <span class="gl"><img class="gear-icon" id="earringsIcon" src="assets/item_icons/Earrings_of_essence_find.svg" onerror="this.style.display='none'" loading="lazy">Earrings</span>
+                    <span class="gc">
+                        <select id="earringsType" style="flex:0 0 80px;min-width:60px;">
+                            <option value="essence">Essence</option>
+                            <option value="rare">Rare</option>
+                            <option value="philo">Philo</option>
+                            <option value="none">None</option>
+                        </select>
+                        <select id="earringsLevel" style="flex:0 0 46px;min-width:36px;">
                             <option value="0">0</option>
                         </select>
                     </span>
@@ -489,9 +527,10 @@
                         <th onclick="sortTable(8)" class="number" style="width:80px">Profit</th>
                         <th onclick="sortTable(9)" class="number" style="width:65px">ROI%</th>
                         <th onclick="sortTable(10)" class="number" style="width:90px">$/day</th>
-                        <th onclick="sortTable(11)" class="number" style="width:85px">$/day⚒ <span class="info-icon" data-tip="Profit per day including crafting time&#10;⚒ = with crafting time factored in">&#9881;</span></th>
+                        <th onclick="sortTable(11)" class="number" style="width:100px">$/day⚒ <span class="info-icon" data-tip="Profit per day including crafting time&#10;⚒ = with crafting time factored in">&#9881;</span></th>
                         <th onclick="sortTable(12)" class="number" style="width:60px">Time</th>
                         <th onclick="sortTable(13)" class="number" style="width:65px">XP/day</th>
+                        <th onclick="sortTable(14)" class="number" style="width:80px">XP/day⚒ <span class="info-icon" data-tip="XP per day including crafting time&#10;⚒ = with crafting time factored in">&#9881;</span></th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody">

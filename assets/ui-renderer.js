@@ -2,6 +2,11 @@
  * ui-renderer.js — All rendering functions, detail view, sorting
  */
 
+function getProfit(r) {
+    const includeRare = getSettings().gear?.includeRareFind ?? true;
+    return getSellPrice(r) - r.totalCost + (includeRare ? (r.rareFindValue || 0) : 0);
+}
+
 function reSort() {
     const col = currentSort.col;
     const asc = currentSort.asc;
@@ -13,21 +18,28 @@ function reSort() {
             case 2: aVal = getStrategyLabel(a); bVal = getStrategyLabel(b); break;
             case 3: aVal = a.basePrice; bVal = b.basePrice; break;
             case 4: aVal = a.matCost; bVal = b.matCost; break;
-            case 5: aVal = a.matCost > 0 ? ((getSellPrice(a) - a.totalCost) / a.matCost) * 100 : 0; bVal = b.matCost > 0 ? ((getSellPrice(b) - b.totalCost) / b.matCost) * 100 : 0; break;
+            case 5: aVal = a.matCost > 0 ? (getProfit(a) / a.matCost) * 100 : 0; bVal = b.matCost > 0 ? (getProfit(b) / b.matCost) * 100 : 0; break;
             case 6: aVal = getSellPrice(a); bVal = getSellPrice(b); break;
             case 7: aVal = a.volume; bVal = b.volume; break;
-            case 8: aVal = getSellPrice(a) - a.totalCost; bVal = getSellPrice(b) - b.totalCost; break;
-            case 9: aVal = a.totalCost > 0 ? ((getSellPrice(a) - a.totalCost) / a.totalCost) * 100 : 0; bVal = b.totalCost > 0 ? ((getSellPrice(b) - b.totalCost) / b.totalCost) * 100 : 0; break;
-            case 10: aVal = a.durationDays > 0 ? (getSellPrice(a) - a.totalCost) / a.durationDays : 0; bVal = b.durationDays > 0 ? (getSellPrice(b) - b.totalCost) / b.durationDays : 0; break;
+            case 8: aVal = getProfit(a); bVal = getProfit(b); break;
+            case 9: aVal = a.totalCost > 0 ? (getProfit(a) / a.totalCost) * 100 : 0; bVal = b.totalCost > 0 ? (getProfit(b) / b.totalCost) * 100 : 0; break;
+            case 10: aVal = a.durationDays > 0 ? getProfit(a) / a.durationDays : 0; bVal = b.durationDays > 0 ? getProfit(b) / b.durationDays : 0; break;
             case 11: {
                 const aCraftDays = (a.craftDays || 0) + a.durationDays;
                 const bCraftDays = (b.craftDays || 0) + b.durationDays;
-                aVal = aCraftDays > 0 ? (getSellPrice(a) - a.totalCost) / aCraftDays : 0;
-                bVal = bCraftDays > 0 ? (getSellPrice(b) - b.totalCost) / bCraftDays : 0;
+                aVal = aCraftDays > 0 ? getProfit(a) / aCraftDays : 0;
+                bVal = bCraftDays > 0 ? getProfit(b) / bCraftDays : 0;
                 break;
             }
             case 12: aVal = a.durationHours; bVal = b.durationHours; break;
             case 13: aVal = a.durationDays > 0 ? (a.xp / a.durationDays) : 0; bVal = b.durationDays > 0 ? (b.xp / b.durationDays) : 0; break;
+            case 14: {
+                const aCraftDays14 = (a.craftDays || 0) + a.durationDays;
+                const bCraftDays14 = (b.craftDays || 0) + b.durationDays;
+                aVal = aCraftDays14 > 0 ? (a.xp / aCraftDays14) : 0;
+                bVal = bCraftDays14 > 0 ? (b.xp / bCraftDays14) : 0;
+                break;
+            }
             default: aVal = 0; bVal = 0;
         }
         const cmp = typeof aVal === 'string' ? aVal.localeCompare(bVal) : (aVal || 0) - (bVal || 0);
@@ -36,20 +48,202 @@ function reSort() {
     renderResults();
 }
 
+function updateSortIndicators() {
+    const cols = document.querySelectorAll('#resultsTable thead tr th[onclick]');
+    for (const th of cols) {
+        const m = th.getAttribute('onclick')?.match(/sortTable\((\d+)\)/);
+        if (!m) continue;
+        const idx = parseInt(m[1]);
+        let existing = th.querySelector('.sort-arrow');
+        if (existing) existing.remove();
+        if (idx === currentSort.col) {
+            const arrow = document.createElement('span');
+            arrow.className = 'sort-arrow';
+            arrow.textContent = ' ' + (currentSort.asc ? '▲' : '▼');
+            th.appendChild(arrow);
+        }
+    }
+}
+
 function refreshBonuses() {
     const container = document.getElementById('bonusesContent');
     if (!container || !calculator) return;
-    const gd = window.GAME_DATA_STATIC || {};
-    const effectiveLevel = calculator.getEffectiveLevel();
-    const totalBonus = calculator.getTotalBonus(effectiveLevel);
-    const speedBonus = calculator.getAttemptTime(effectiveLevel);
-    const baseTime = 12 / (1 + 0 / 100);
+    const calc = calculator;
+    const cfg = calc.config;
+    const eb = calc.enhanceBonus;
 
-    container.innerHTML = `
-        <div>Enhance Succ Bonus: +${((totalBonus - 1) * 100).toFixed(2)}%</div>
-        <div>Enhance Speed Bonus: ${(baseTime / speedBonus).toFixed(2)}x</div>
-        <div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">* doesn't include level advantage</div>
-    `;
+    const effectiveLevel = calc.getEffectiveLevel();
+    const totalBonus = calc.getTotalBonus(effectiveLevel);
+    const speedTime = calc.getAttemptTime(effectiveLevel);
+    const baseTime = 12;
+
+    const includeRare = cfg.includeRareFind ?? true;
+    const rareFindMult = calc.getRareFindMultiplier();
+    const essenceFindMult = calc.getEssenceFindMultiplier();
+    const rarePct = ((rareFindMult - 1) * 100).toFixed(1);
+    const essPct = ((essenceFindMult - 1) * 100).toFixed(1);
+
+    const enhancer = cfg.enhancer || 'celestial_enhancer';
+    const enhLv = Math.max(0, cfg.enhancerLevel || 0);
+    const obsLv = cfg.observatoryLevel || 0;
+    const guzzling = calc.getGuzzlingBonus();
+
+    // --- Success bonus breakdown ---
+    const enhSucc = calc.getEnhancerBonus();
+    const achSucc = cfg.achievementSuccessBonus || 0;
+    const obsSucc = 0.05 * obsLv;
+    const succTipLines = [];
+    if (enhSucc > 0) succTipLines.push(`${enhancer.replace(/_/g, ' ')} (Lv ${enhLv})|+${enhSucc.toFixed(2)}%`);
+    if (achSucc > 0) succTipLines.push(`Achievements|+${achSucc.toFixed(2)}%`);
+    if (obsLv > 0) succTipLines.push(`Observatory (Lv ${obsLv})|+${obsSucc.toFixed(2)}%`);
+    succTipLines.push(`Level advantage|not included`);
+
+    // --- Speed bonus breakdown ---
+    let teaSpeed = 0; let teaLabel = '';
+    if (cfg.teaUltraEnhancing) { teaSpeed = 6 * guzzling; teaLabel = 'Ultra Enhancing Tea'; }
+    else if (cfg.teaSuperEnhancing) { teaSpeed = 4 * guzzling; teaLabel = 'Super Enhancing Tea'; }
+    else if (cfg.teaEnhancing) { teaSpeed = 2 * guzzling; teaLabel = 'Standard Enhancing Tea'; }
+
+    const spdTipLines = [];
+    if (teaSpeed > 0) spdTipLines.push(`${teaLabel}|+${teaSpeed.toFixed(2)}% (conc: ${((guzzling - 1) * 100).toFixed(1)}%)`);
+
+    if (cfg.enchantedGlovesEquipped !== false) {
+        const lv = Math.max(0, cfg.enchantedGlovesLevel || 0);
+        const base = calc._getNoncombatStat('/items/enchanted_gloves', 'enhancingSpeed');
+        if (base > 0) { const val = base * 100 * eb[lv]; spdTipLines.push(`Enchanted Gloves (Lv ${lv})|+${val.toFixed(2)}%`); }
+    }
+    if (cfg.enhancerTopEquipped) {
+        const lv = Math.max(0, cfg.enhancerTopLevel || 0);
+        const base = calc._getNoncombatStat('/items/enhancers_top', 'enhancingSpeed');
+        if (base > 0) { const val = base * 100 * eb[lv]; spdTipLines.push(`Enhancer Top (Lv ${lv})|+${val.toFixed(2)}%`); }
+    }
+    if (cfg.enhancerBotEquipped) {
+        const lv = Math.max(0, cfg.enhancerBotLevel || 0);
+        const base = calc._getNoncombatStat('/items/enhancers_bottoms', 'enhancingSpeed');
+        if (base > 0) { const val = base * 100 * eb[lv]; spdTipLines.push(`Enhancer Bottoms (Lv ${lv})|+${val.toFixed(2)}%`); }
+    }
+    if (cfg.philoNeckEquipped) {
+        const lv = Math.max(0, cfg.philoNeckLevel || 0);
+        const base = calc._getNoncombatStat('/items/philosophers_necklace', 'skillingSpeed');
+        if (base > 0) { const val = base * 100 * (((eb[lv] - 1) * 5) + 1); spdTipLines.push(`Philosopher's Necklace (Lv ${lv})|+${val.toFixed(2)}%`); }
+    } else if (cfg.speedNeckEquipped) {
+        const lv = Math.max(0, cfg.speedNeckLevel || 0);
+        const base = calc._getNoncombatStat('/items/necklace_of_speed', 'skillingSpeed');
+        if (base > 0) { const val = base * 100 * (((eb[lv] - 1) * 5) + 1); spdTipLines.push(`Necklace of Speed (Lv ${lv})|+${val.toFixed(2)}%`); }
+    }
+    if (cfg.capeEquipped !== false && cfg.capeLevel !== undefined) {
+        const lv = Math.max(0, cfg.capeLevel || 0);
+        const capeHrid = cfg.capeRefined ? '/items/chance_cape_refined' : '/items/chance_cape';
+        const base = calc._getNoncombatStat(capeHrid, 'enhancingSpeed');
+        if (base > 0) { const val = base * 100 * (((eb[lv] - 1) * 5) + 1); spdTipLines.push(`Chance Cape${cfg.capeRefined ? ' (R)' : ''} (Lv ${lv})|+${val.toFixed(2)}%`); }
+    }
+    const spdBuffLv = cfg.enhancingBuffLevel || 0;
+    if (spdBuffLv > 0) spdTipLines.push(`Community buff (Lv ${spdBuffLv})|+${(19.5 + spdBuffLv * 0.5).toFixed(1)}%`);
+    if (obsLv > 0) spdTipLines.push(`Observatory (Lv ${obsLv})|+${obsLv.toFixed(1)}%`);
+    spdTipLines.push(`Level advantage|not included`);
+
+    const speedMult = (baseTime / speedTime).toFixed(2);
+    const totalSuccPct = ((totalBonus - 1) * 100).toFixed(2);
+
+    // --- Wisdom (XP) bonus breakdown ---
+    const wisdTipLines = [];
+    let wisdTotal = 0;
+    if (cfg.wisdomTea) { const v = 0.12 * guzzling; wisdTipLines.push(`Wisdom Tea|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    if (cfg.enhancerEquipped !== false && cfg.enhancer) {
+        const base = calc._getNoncombatStat(`/items/${cfg.enhancer}`, 'enhancingExperience');
+        if (base > 0) { const lv = Math.max(0, cfg.enhancerLevel || 0); const v = base * eb[lv]; wisdTipLines.push(`${cfg.enhancer.replace(/_/g, ' ')} (Lv ${lv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    }
+    if (cfg.enhancerBotEquipped) {
+        const lv = Math.max(0, cfg.enhancerBotLevel || 0);
+        const base = calc._getNoncombatStat('/items/enhancers_bottoms', 'enhancingExperience');
+        if (base > 0) { const v = base * eb[lv]; wisdTipLines.push(`Enhancer Bottoms (Lv ${lv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    }
+    if (cfg.philoNeckEquipped) {
+        const lv = Math.max(0, cfg.philoNeckLevel || 0);
+        const base = calc._getNoncombatStat('/items/philosophers_necklace', 'skillingExperience');
+        if (base > 0) { const v = base * (((eb[lv] - 1) * 5) + 1); wisdTipLines.push(`Philosopher's Necklace (Lv ${lv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    }
+    if (cfg.charmEquipped && cfg.charmTier && cfg.charmTier !== 'none') {
+        const lv = Math.max(0, cfg.charmLevel || 0);
+        const base = calc._getNoncombatStat(`/items/${cfg.charmTier}_enhancing_charm`, 'enhancingExperience');
+        if (base > 0) { const v = base * (((eb[lv] - 1) * 5) + 1); wisdTipLines.push(`${cfg.charmTier.charAt(0).toUpperCase() + cfg.charmTier.slice(1)} Charm (Lv ${lv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    }
+    if (cfg.capeEquipped !== false && cfg.capeLevel !== undefined) {
+        const lv = Math.max(0, cfg.capeLevel || 0);
+        const capeHrid = cfg.capeRefined ? '/items/chance_cape_refined' : '/items/chance_cape';
+        const base = calc._getNoncombatStat(capeHrid, 'enhancingExperience');
+        if (base > 0) { const v = base * (((eb[lv] - 1) * 5) + 1); wisdTipLines.push(`Chance Cape${cfg.capeRefined ? ' (R)' : ''} (Lv ${lv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+    }
+    const expBuffLv = cfg.experienceBuffLevel || 0;
+    if (expBuffLv > 0) { const v = 0.195 + expBuffLv * 0.005; wisdTipLines.push(`Community buff (Lv ${expBuffLv})|+${(v * 100).toFixed(2)}%`); wisdTotal += v; }
+
+    const houseTotal = (cfg.forgeLevel || 0) + (cfg.workshopLevel || 0) + (cfg.sewing_parlorLevel || 0) + (cfg.otherHouseLevel || 0) + (cfg.observatoryLevel || 0);
+    const houseWisd = houseTotal * 0.0005;
+    if (houseWisd > 0) { wisdTipLines.push(`House rooms (Lv ${houseTotal})|+${(houseWisd * 100).toFixed(2)}%`); wisdTotal += houseWisd; }
+
+    const wisdPct = (wisdTotal * 100).toFixed(2);
+
+    // --- Rare Find breakdown ---
+    const rareTipLines = [];
+    if (calc._getNoncombatStat(`/items/${enhancer}`, 'enhancingRareFind') > 0) {
+        const lv = Math.max(0, cfg.enhancerLevel || 0);
+        const base = calc._getNoncombatStat(`/items/${enhancer}`, 'enhancingRareFind');
+        rareTipLines.push(`${enhancer.replace(/_/g, ' ')} (Lv ${lv})|+${(base * eb[lv] * 100).toFixed(2)}%`);
+    }
+    if (cfg.enhancerTopEquipped) {
+        const lv = Math.max(0, cfg.enhancerTopLevel || 0);
+        const base = calc._getNoncombatStat('/items/enhancers_top', 'enhancingRareFind');
+        if (base > 0) rareTipLines.push(`Enhancer Top (Lv ${lv})|+${(base * eb[lv] * 100).toFixed(2)}%`);
+    }
+    const ringType = cfg.ringType || 'none';
+    if (ringType === 'rare' || ringType === 'philo') {
+        const lv = Math.max(0, cfg.ringLevel || 0);
+        const mult = (eb[lv] - 1) * 5 + 1;
+        const hrid = ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_rare_find';
+        const base = calc._getNoncombatStat(hrid, 'skillingRareFind');
+        if (base > 0) rareTipLines.push(`${ringType === 'philo' ? "Philosopher's Ring" : 'Ring of Rare Find'} (Lv ${lv})|+${(base * mult * 100).toFixed(2)}%`);
+    }
+    const earringsType = cfg.earringsType || 'none';
+    if (earringsType === 'rare' || earringsType === 'philo') {
+        const lv = Math.max(0, cfg.earringsLevel || 0);
+        const mult = (eb[lv] - 1) * 5 + 1;
+        const hrid = earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_rare_find';
+        const base = calc._getNoncombatStat(hrid, 'skillingRareFind');
+        if (base > 0) rareTipLines.push(`${earringsType === 'philo' ? "Philosopher's Earrings" : 'Earrings of Rare Find'} (Lv ${lv})|+${(base * mult * 100).toFixed(2)}%`);
+    }
+    const rareHouseTotal = (cfg.forgeLevel || 0) + (cfg.workshopLevel || 0) + (cfg.sewing_parlorLevel || 0) + (cfg.otherHouseLevel || 0) + (cfg.observatoryLevel || 0);
+    const houseRare = rareHouseTotal * 0.002;
+    if (houseRare > 0) rareTipLines.push(`House rooms (Lv ${rareHouseTotal})|+${(houseRare * 100).toFixed(2)}%`);
+
+    // --- Essence Find breakdown ---
+    const essTipLines = [];
+    if (ringType === 'essence' || ringType === 'philo') {
+        const lv = Math.max(0, cfg.ringLevel || 0);
+        const mult = (eb[lv] - 1) * 5 + 1;
+        const hrid = ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_essence_find';
+        const base = calc._getNoncombatStat(hrid, 'skillingEssenceFind');
+        if (base > 0) essTipLines.push(`${ringType === 'philo' ? "Philosopher's Ring" : 'Ring of Essence Find'} (Lv ${lv})|+${(base * mult * 100).toFixed(2)}%`);
+    }
+    if (earringsType === 'essence' || earringsType === 'philo') {
+        const lv = Math.max(0, cfg.earringsLevel || 0);
+        const mult = (eb[lv] - 1) * 5 + 1;
+        const hrid = earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_essence_find';
+        const base = calc._getNoncombatStat(hrid, 'skillingEssenceFind');
+        if (base > 0) essTipLines.push(`${earringsType === 'philo' ? "Philosopher's Earrings" : 'Earrings of Essence Find'} (Lv ${lv})|+${(base * mult * 100).toFixed(2)}%`);
+    }
+
+    const esc = s => s.replace(/"/g, '&quot;');
+
+    let html = `<div>Enhance Succ Bonus: +${totalSuccPct}% <span class="info-icon" data-tip="${esc(succTipLines.join('\n'))}">ⓘ</span></div>`;
+    html += `<div>Enhance Speed Bonus: ${speedMult}x <span class="info-icon" data-tip="${esc(spdTipLines.join('\n'))}">ⓘ</span></div>`;
+    html += `<div>Wisdom (XP) Bonus: +${wisdPct}% <span class="info-icon" data-tip="${esc(wisdTipLines.join('\n'))}">ⓘ</span></div>`;
+    if (includeRare) {
+        html += `<div style="margin-top:2px;">Rare Find: +${rarePct}% <span class="info-icon" data-tip="${esc(rareTipLines.join('\n'))}">ⓘ</span> | Essence Find: +${essPct}% <span class="info-icon" data-tip="${esc(essTipLines.join('\n'))}">ⓘ</span></div>`;
+    }
+    html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px;">* doesn't include level advantage</div>`;
+
+    container.innerHTML = html;
+    setupTooltips();
 }
 
 function renderShoppingList(r) {
@@ -104,7 +298,7 @@ function renderBaseItemSection(r) {
     const hrid = r.hrid;
     const baseItemMode = r._baseItemMode || 'best';
     const refineMode = r._refineMode || 'auto';
-    const craftBuyMode = document.getElementById('craftBuyMode')?.value || 'pessimistic';
+    const craftBuyMode = getSettings().craftBuyMode || 'pessimistic';
 
     const priceRes = new PriceResolver(window.GAME_DATA_STATIC || {});
     const marketAskRes = priceRes._resolveBuyPrice(hrid, 0, marketData.market, 'pessimistic');
@@ -113,7 +307,7 @@ function renderBaseItemSection(r) {
     const bidPrice = marketBidRes.bid > 0 ? marketBidRes.bid : 0;
 
     const cDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
-    const rMode = r._refineMode || document.getElementById('refineMode')?.value || 'auto';
+    const rMode = r._refineMode || getSettings().refineMode || 'auto';
     const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, cDepth, 0, false, 1, rMode);
 
     let usedSource, usedPrice;
@@ -171,7 +365,7 @@ function renderBaseItemSection(r) {
 
     if (craftData) {
         const craftCalc = new CraftingTimeCalculator(window.GAME_DATA_STATIC || {});
-        const craftConfig = _collectGearSettings();
+        const craftConfig = getGearConfig();
         let topCtSeconds = 0;
         let topCraftTimeInfo = null;
         try {
@@ -301,11 +495,11 @@ function _resolveDepthBasePrice(craftData, askPrice, bidPrice, baseItemMode, ref
 
 function renderDepthComparisons(r, sellPrice) {
     const gd = window.GAME_DATA_STATIC || {};
-    const craftBuyMode = document.getElementById('craftBuyMode')?.value || 'pessimistic';
+    const craftBuyMode = getSettings().craftBuyMode || 'pessimistic';
     const baseItemMode = r._baseItemMode || 'best';
     const refineMode = r._refineMode || 'auto';
     const selectedDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
-    const craftConfig = _collectGearSettings();
+    const craftConfig = getGearConfig();
 
     const priceRes = new PriceResolver(gd);
     const askRes = priceRes._resolveBuyPrice(r.hrid, 0, marketData.market, 'pessimistic');
@@ -334,7 +528,7 @@ function renderDepthComparisons(r, sellPrice) {
 
         // Each depth is computed independently
         const totalCost = basePrice + fixedCosts;
-        const profit = sellPrice - totalCost;
+        const profit = sellPrice - totalCost + (r.rareFindValue || 0);
         const depthTotalDays = r.durationDays + craftTime / 86400;
         const profitPerDay = depthTotalDays > 0 ? profit / depthTotalDays : 0;
 
@@ -396,14 +590,13 @@ function renderStats(filtered) {
     const bar = document.getElementById('statsBar');
     if (!bar) return;
     const total = filtered.length;
-    const profitable = filtered.filter(r => (getSellPrice(r) - r.totalCost) > 0).length;
+    const profitable = filtered.filter(r => getProfit(r) > 0).length;
     let bestRoi = 0, bestRoiItem = '', bestRoiLvl = 0, bestRoiHrid = '';
     let bestPerDay = 0, bestPerDayItem = '', bestPerDayLvl = 0, bestPerDayHrid = '';
     let bestProfit = 0, bestProfitItem = '', bestProfitLvl = 0, bestProfitHrid = '';
     let bestPerDayCraft = 0, bestPerDayCraftItem = '', bestPerDayCraftLvl = 0, bestPerDayCraftHrid = '';
     for (const r of filtered) {
-        const sellPrice = getSellPrice(r);
-        const profit = sellPrice - r.totalCost;
+        const profit = getProfit(r);
         const roi = r.totalCost > 0 ? (profit / r.totalCost) * 100 : 0;
         const perDay = r.durationDays > 0 ? profit / r.durationDays : 0;
         const craftDays = r.craftDays || 0;
@@ -447,7 +640,7 @@ function renderResults() {
     });
 
     renderStats(filtered);
-    const profCount = filtered.filter(r => (getSellPrice(r) - r.totalCost) > 0).length;
+    const profCount = filtered.filter(r => getProfit(r) > 0).length;
     updateStatus(`${filtered.length} items (${profCount} profitable)`, '');
 
     for (let i = 0; i < filtered.length; i++) {
@@ -456,7 +649,9 @@ function renderResults() {
         const detailId = `detail-${i}`;
 
         const sellPrice = getSellPrice(r);
-        const profit = sellPrice - r.totalCost;
+        const sellProfit = sellPrice - r.totalCost;
+        const includeRareBonus = getSettings().gear?.includeRareFind ?? true;
+        const profit = sellProfit + (includeRareBonus ? (r.rareFindValue || 0) : 0);
         const roi = r.totalCost > 0 ? (profit / r.totalCost) * 100 : 0;
         const matRoi = r.matCost > 0 ? (profit / r.matCost) * 100 : 0;
         const profitPerDay = r.durationDays > 0 ? profit / r.durationDays : 0;
@@ -497,6 +692,7 @@ function renderResults() {
             <td class="number">${craftDays > 0 ? formatCoin(Math.round(profitPerDayWithCraft)) : `<span style="color:var(--text-muted)">${formatCoin(Math.round(profitPerDay))}</span>`}</td>
             <td class="number">${formatDuration(r.durationHours)}</td>
             <td class="number">${formatCoin(rowXpPerDay)}</td>
+            <td class="number">${craftDays > 0 ? formatCoin(Math.round(r.xp / totalDaysWithCraft)) : `<span style="color:var(--text-muted)">${formatCoin(rowXpPerDay)}</span>`}</td>
         `;
         tbody.appendChild(row);
 
@@ -509,6 +705,7 @@ function renderResults() {
         const protectionTotal = (r.protectPrice || 0) * (r.protectCount || 0);
         const materialOnlyCost = Math.max(0, r.matCost - protectionTotal);
         const xpPerDay = r.durationDays > 0 ? formatCoin(Math.round(r.xp / r.durationDays)) : '0';
+        const xpPerDayWithCraft = totalDaysWithCraft > 0 ? formatCoin(Math.round(r.xp / totalDaysWithCraft)) : '0';
 
         const gd = window.GAME_DATA_STATIC || {};
         const perAttemptMatLines = (resolved?.matPrices || []).map(([count, price, detail]) => {
@@ -542,7 +739,7 @@ function renderResults() {
         const sellDetail = `${sellBidHtml} ${sellAskHtml}`.trim();
 
         detailRow.innerHTML = `
-            <td colspan="14">
+            <td colspan="15">
                 <div class="detail-content">
                     <div class="detail-grid-sections">
                         <div class="detail-section">
@@ -591,10 +788,45 @@ function renderResults() {
                                 <span class="detail-icon"></span>
                             </div>` : ''}
                             <div class="detail-line">
-                                <span class="left strong">Profit</span>
-                                <span class="right ${profit >= 0 ? 'profit-val' : 'loss-val'}">${formatCoin(profit)}</span>
+                                <span class="left strong">Sell Profit</span>
+                                <span class="right ${sellProfit >= 0 ? 'profit-val' : 'loss-val'}">${formatCoin(sellProfit)}</span>
                                 <span class="detail-icon"></span>
                             </div>
+                            ${r.rareFindValue > 0 ? `<div class="detail-line" style="color:var(--text-muted);font-size:0.72rem;border-top:1px dashed var(--border);padding-top:4px;margin-top:4px;">
+                                <span class="left">Bonus Value</span>
+                                <span class="right" style="color:var(--profit);">+${formatCoin(r.rareFindValue)}</span>
+                                <span class="detail-icon"></span>
+                            </div>
+                            <div class="detail-line" style="font-size:0.68rem;color:var(--text-muted);padding-left:8px;">
+                                <span class="left">Essence drop</span>
+                                <span class="right">${(r.essenceChance * 100).toFixed(2)}% → ${formatCoin(r.essenceValue)}</span>
+                                <span class="detail-icon"></span>
+                            </div>
+                            ${r.crateType ? `<div class="detail-line" style="font-size:0.68rem;color:var(--text-muted);padding-left:8px;">
+                                <span class="left">${r.crateType} Crate drop</span>
+                                <span class="right">${(r.crateChance * 100).toFixed(4)}% → ${formatCoin(r.crateValue)}</span>
+                                <span class="detail-icon"></span>
+                            </div>` : ''}` : ''}
+                            ${includeRareBonus && r.rareFindValue > 0 ? `<div class="detail-line">
+                                <span class="left strong">Total Profit</span>
+                                <span class="right ${profit >= 0 ? 'profit-val' : 'loss-val'}">${formatCoin(profit)}</span>
+                                <span class="detail-icon"></span>
+                            </div>` : ''}
+                            <div class="detail-line">
+                                <span class="left">Enhance Duration</span>
+                                <span class="right">${r.durationHours.toFixed(2)}h (${(r.durationHours / 24).toFixed(3)}d)</span>
+                                <span class="detail-icon"></span>
+                            </div>
+                            ${r._craftingTimeInfo ? `<div class="detail-line" style="font-size:0.72rem;color:var(--text-muted);">
+                                <span class="left">Craft time</span>
+                                <span class="right">${formatSeconds(r._craftingTimeInfo.totalCraftTime)}${r._craftingTimeInfo ? ` (${r._craftingTimeInfo.skillId}, ×${r._craftingTimeInfo.outputMultiplier.toFixed(2)})${r._craftingTimeInfo.efficiencyIgnored ? ' <span style="color:#f59e0b;">no eff.</span>' : ''}` : ''}</span>
+                                <span class="detail-icon"></span>
+                            </div>
+                            <div class="detail-line">
+                                <span class="left">Total time</span>
+                                <span class="right">${(r.durationHours + craftDays * 24).toFixed(1)}h (${totalDaysWithCraft.toFixed(2)}d)</span>
+                                <span class="detail-icon"></span>
+                            </div>` : ''}
                             <div class="detail-line">
                                 <span class="left strong">$/day</span>
                                 <span class="right strong">${formatCoin(Math.round(profitPerDay))}</span>
@@ -605,17 +837,7 @@ function renderResults() {
                                 <span class="right strong">${formatCoin(Math.round(profitPerDayWithCraft))}</span>
                                 <span class="detail-icon"></span>
                             </div>
-                            <div class="detail-line" style="font-size:0.72rem;color:var(--text-muted);">
-                                <span class="left">Craft time</span>
-                                <span class="right">${formatSeconds(r._craftingTimeInfo.totalCraftTime)}${r._craftingTimeInfo ? ` (${r._craftingTimeInfo.skillId}, ×${r._craftingTimeInfo.outputMultiplier.toFixed(2)})${r._craftingTimeInfo.efficiencyIgnored ? ' <span style="color:#f59e0b;">no eff.</span>' : ''}` : ''}</span>
-                                <span class="detail-icon"></span>
-                            </div>
                             ${renderDepthComparisons(r, sellPrice)}` : ''}
-                            <div class="detail-line">
-                                <span class="left">Duration</span>
-                                <span class="right">${r.durationHours.toFixed(1)}h (${r.durationDays.toFixed(2)}d)</span>
-                                <span class="detail-icon"></span>
-                            </div>
                             <div class="detail-line">
                                 <span class="left">Attempts</span>
                                 <span class="right">${r.attempts.toLocaleString()}</span>
@@ -631,6 +853,11 @@ function renderResults() {
                                 <span class="right">${xpPerDay}</span>
                                 <span class="detail-icon"></span>
                             </div>
+                            ${craftDays > 0 ? `<div class="detail-line">
+                                <span class="left">XP/day ⚒</span>
+                                <span class="right">${xpPerDayWithCraft}</span>
+                                <span class="detail-icon"></span>
+                            </div>` : ''}
                             <div class="cost-summary-divider"></div>
                             <h4 style="margin-top:4px;">💰 Cost Summary</h4>
                             <div class="detail-line">
@@ -673,6 +900,7 @@ function renderResults() {
             if (mainRow) mainRow.querySelector('.expand-indicator').textContent = '▼';
         }
     }
+    updateSortIndicators();
 }
 
 function toggleDetail(detailId) {

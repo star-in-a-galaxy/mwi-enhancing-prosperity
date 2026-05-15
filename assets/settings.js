@@ -1,343 +1,368 @@
 /**
- * settings.js — Gear panel population, settings persistence
+ * settings.js — Centralized settings store + gear panel + persistence
+ *
+ * Architecture:
+ *   `settingsStore` is the single source of truth for ALL app state.
+ *   Consumers read via `getSettings()`. Only functions in this file write to it.
+ *   `updateSetting()` writes → syncs DOM → saves → triggers recalc/render.
  */
 
-function _collectGearSettings() {
-    const g = id => {
-        const el = document.getElementById(id);
-        if (!el) return null;
-        if (el.type === 'checkbox') return el.checked;
-        if (el.tagName === 'SELECT') return el.value;
-        return el.value;
-    };
-    return {
-        enhancingLevel: g('enhancingLevel'),
-        observatoryLevel: g('observatoryLevel'),
-        enhancer: g('enhancer'),
-        enhancerLevel: g('enhancerLevel'),
-        enchantedGlovesEquipped: g('enchantedGlovesEquipped'),
-        enchantedGlovesLevel: g('enchantedGlovesLevel'),
-        enhancerTopEquipped: g('enhancerTopEquipped'),
-        enhancerTopLevel: g('enhancerTopLevel'),
-        enhancerBotEquipped: g('enhancerBotEquipped'),
-        enhancerBotLevel: g('enhancerBotLevel'),
-        necklaceType: g('necklaceType'),
-        necklaceLevel: g('necklaceLevel'),
-        guzzlingPouchEquipped: g('guzzlingPouchEquipped'),
-        guzzlingPouchLevel: g('guzzlingPouchLevel'),
-        capeEquipped: g('capeEquipped'),
-        capeType: g('capeType'),
-        capeLevel: g('capeLevel'),
-        teaEnhancing: g('teaEnhancing'),
-        teaSuperEnhancing: g('teaSuperEnhancing'),
-        teaUltraEnhancing: g('teaUltraEnhancing'),
-        teaBlessed: g('teaBlessed'),
-        wisdomTea: g('wisdomTea'),
-        artisanTea: g('artisanTea'),
-        charmTier: g('charmTier'),
-        charmLevel: g('charmLevel'),
-        enhancingBuffLevel: g('enhancingBuffLevel'),
-        experienceBuffLevel: g('experienceBuffLevel'),
-        achievementBonus: g('achievementBonus'),
-        productionEfficiencyBuffLevel: g('productionEfficiencyBuffLevel'),
-        craftingTeaEfficiency: g('craftingTeaEfficiency'),
-        craftingTeaSuperEfficiency: g('craftingTeaSuperEfficiency'),
-        craftingTeaUltraEfficiency: g('craftingTeaUltraEfficiency'),
-        craftingEfficiencyTea: g('craftingEfficiencyTea'),
-        craftingWisdomTea: g('craftingWisdomTea'),
-        eyeWatchEquipped: g('eyeWatchEquipped'),
-        eyeWatchLevel: g('eyeWatchLevel'),
-        artificerCapeEquipped: g('artificerCapeEquipped'),
-        artificerCapeType: g('artificerCapeType'),
-        artificerCapeLevel: g('artificerCapeLevel'),
-        cheesesmithingLevel: g('cheesesmithingLevel'),
-        cheesesmithingTool: g('cheesesmithingTool'),
-        cheesesmithingToolLevel: g('cheesesmithingToolLevel'),
-        cheesesmithingTopEquipped: g('cheesesmithingTopEquipped'),
-        cheesesmithingTopLevel: g('cheesesmithingTopLevel'),
-        cheesesmithingBottomsEquipped: g('cheesesmithingBottomsEquipped'),
-        cheesesmithingBottomsLevel: g('cheesesmithingBottomsLevel'),
-        craftingLevel: g('craftingLevel'),
-        craftingTool: g('craftingTool'),
-        craftingToolLevel: g('craftingToolLevel'),
-        craftingTopEquipped: g('craftingTopEquipped'),
-        craftingTopLevel: g('craftingTopLevel'),
-        craftingBottomsEquipped: g('craftingBottomsEquipped'),
-        craftingBottomsLevel: g('craftingBottomsLevel'),
-        tailoringLevel: g('tailoringLevel'),
-        tailoringTool: g('tailoringTool'),
-        tailoringToolLevel: g('tailoringToolLevel'),
-        tailoringTopEquipped: g('tailoringTopEquipped'),
-        tailoringTopLevel: g('tailoringTopLevel'),
-        tailoringBottomsEquipped: g('tailoringBottomsEquipped'),
-        tailoringBottomsLevel: g('tailoringBottomsLevel'),
-        forgeLevel: g('forgeLevel'),
-        workshopLevel: g('workshopLevel'),
-        sewing_parlorLevel: g('sewing_parlorLevel'),
-        skipBaseResourceCrafting: g('skipBaseResourceCrafting'),
-        ignoreCraftEfficiency: g('ignoreCraftEfficiency'),
-        craftingDepth: (() => { const v = document.getElementById('craftingDepth')?.value; if (v === 'best') return -1; if (v === 'all') return 6; return parseInt(v) || 0; })(),
-    };
+const settingsStore = {
+    sellMode: 'pessimistic',
+    buyMode: 'pessimistic',
+    craftBuyMode: 'pessimistic',
+    baseItemMode: 'best',
+    refineMode: 'auto',
+    marketFeePct: 0,
+    craftingDepth: -1,
+    searchQuery: '',
+    costFilters: { '100m': true, '300m': true, '1b': true, '2b': true, '5b': true, 'over5b': true },
+    hideInstant: true,
+    minVolume: 0,
+    activeLevels: [],
+    sort: { col: 11, asc: false },
+    gear: {},
+};
+
+function getSettings() { return settingsStore; }
+
+function _readDom(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    if (el.type === 'checkbox') return el.checked;
+    if (el.tagName === 'SELECT') return el.value;
+    return el.value;
 }
 
-function _applyGearSettings(s) {
+function _writeDom(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (typeof val === 'boolean') el.checked = val;
+    else el.value = String(val);
+}
+
+function _collectGearFromDom() {
+    const fields = [
+        'enhancingLevel', 'observatoryLevel', 'enhancer', 'enhancerLevel',
+        'enchantedGlovesEquipped', 'enchantedGlovesLevel',
+        'enhancerTopEquipped', 'enhancerTopLevel',
+        'enhancerBotEquipped', 'enhancerBotLevel',
+        'necklaceType', 'necklaceLevel',
+        'ringType', 'ringLevel',
+        'earringsType', 'earringsLevel',
+        'guzzlingPouchEquipped', 'guzzlingPouchLevel',
+        'capeEquipped', 'capeType', 'capeLevel',
+        'teaEnhancing', 'teaSuperEnhancing', 'teaUltraEnhancing',
+        'teaBlessed', 'wisdomTea', 'artisanTea',
+        'charmTier', 'charmLevel',
+        'enhancingBuffLevel', 'experienceBuffLevel', 'productionEfficiencyBuffLevel',
+        'achievementBonus',
+        'craftingTeaEfficiency', 'craftingTeaSuperEfficiency', 'craftingTeaUltraEfficiency',
+        'craftingEfficiencyTea', 'craftingWisdomTea',
+        'eyeWatchEquipped', 'eyeWatchLevel',
+        'artificerCapeEquipped', 'artificerCapeType', 'artificerCapeLevel',
+        'cheesesmithingLevel', 'cheesesmithingTool', 'cheesesmithingToolLevel',
+        'cheesesmithingTopEquipped', 'cheesesmithingTopLevel',
+        'cheesesmithingBottomsEquipped', 'cheesesmithingBottomsLevel',
+        'craftingLevel', 'craftingTool', 'craftingToolLevel',
+        'craftingTopEquipped', 'craftingTopLevel',
+        'craftingBottomsEquipped', 'craftingBottomsLevel',
+        'tailoringLevel', 'tailoringTool', 'tailoringToolLevel',
+        'tailoringTopEquipped', 'tailoringTopLevel',
+        'tailoringBottomsEquipped', 'tailoringBottomsLevel',
+        'forgeLevel', 'workshopLevel', 'sewing_parlorLevel', 'otherHouseLevel',
+        'skipBaseResourceCrafting', 'ignoreCraftEfficiency', 'includeRareFind',
+    ];
+    const obj = {};
+    for (const id of fields) obj[id] = _readDom(id);
+    obj.craftingDepth = (() => {
+        const v = _readDom('craftingDepth');
+        if (v === 'best') return -1;
+        if (v === 'all') return 6;
+        return parseInt(v) || 0;
+    })();
+    return obj;
+}
+
+function _applyGearToDom(s) {
     const D = DEFAULT_SETTINGS.gear;
-    const set = (id, val) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (typeof val === 'boolean') el.checked = val;
-        else el.value = val;
-    };
-    set('enhancingLevel', s.enhancingLevel ?? D.enhancingLevel);
-    set('observatoryLevel', s.observatoryLevel ?? D.observatoryLevel);
-    set('enhancer', s.enhancer ?? D.enhancer);
-    set('enhancerLevel', s.enhancerLevel ?? D.enhancerLevel);
-    set('enchantedGlovesEquipped', s.enchantedGlovesEquipped ?? D.enchantedGlovesEquipped);
-    set('enchantedGlovesLevel', s.enchantedGlovesLevel ?? D.enchantedGlovesLevel);
-    set('enhancerTopEquipped', s.enhancerTopEquipped ?? D.enhancerTopEquipped);
-    set('enhancerTopLevel', s.enhancerTopLevel ?? D.enhancerTopLevel);
-    set('enhancerBotEquipped', s.enhancerBotEquipped ?? D.enhancerBotEquipped);
-    set('enhancerBotLevel', s.enhancerBotLevel ?? D.enhancerBotLevel);
-    set('necklaceType', s.necklaceType ?? D.necklaceType);
-    set('necklaceLevel', s.necklaceLevel ?? D.necklaceLevel);
-    set('guzzlingPouchEquipped', s.guzzlingPouchEquipped ?? D.guzzlingPouchEquipped);
-    set('guzzlingPouchLevel', s.guzzlingPouchLevel ?? D.guzzlingPouchLevel);
-    set('capeEquipped', s.capeEquipped ?? D.capeEquipped);
-    set('capeType', s.capeType ?? D.capeType);
-    set('capeLevel', s.capeLevel ?? D.capeLevel);
-    set('teaEnhancing', s.teaEnhancing ?? D.teaEnhancing);
-    set('teaSuperEnhancing', s.teaSuperEnhancing ?? D.teaSuperEnhancing);
-    set('teaUltraEnhancing', s.teaUltraEnhancing ?? D.teaUltraEnhancing);
-    set('teaBlessed', s.teaBlessed ?? D.teaBlessed);
-    set('wisdomTea', s.wisdomTea ?? D.wisdomTea);
-    set('artisanTea', s.artisanTea ?? D.artisanTea);
-    set('charmTier', s.charmTier ?? D.charmTier);
-    set('charmLevel', s.charmLevel ?? D.charmLevel);
-    set('enhancingBuffLevel', s.enhancingBuffLevel ?? D.enhancingBuffLevel);
-    set('experienceBuffLevel', s.experienceBuffLevel ?? D.experienceBuffLevel);
-    set('achievementBonus', s.achievementBonus ?? D.achievementBonus);
-    set('productionEfficiencyBuffLevel', s.productionEfficiencyBuffLevel ?? D.productionEfficiencyBuffLevel);
-    set('craftingTeaEfficiency', s.craftingTeaEfficiency ?? D.craftingTeaEfficiency);
-    set('craftingTeaSuperEfficiency', s.craftingTeaSuperEfficiency ?? D.craftingTeaSuperEfficiency);
-    set('craftingTeaUltraEfficiency', s.craftingTeaUltraEfficiency ?? D.craftingTeaUltraEfficiency);
-    set('craftingEfficiencyTea', s.craftingEfficiencyTea ?? D.craftingEfficiencyTea);
-    set('craftingWisdomTea', s.craftingWisdomTea ?? D.craftingWisdomTea);
-    set('eyeWatchEquipped', s.eyeWatchEquipped ?? D.eyeWatchEquipped);
-    set('eyeWatchLevel', s.eyeWatchLevel ?? D.eyeWatchLevel);
-    set('artificerCapeEquipped', s.artificerCapeEquipped ?? D.artificerCapeEquipped);
-    set('artificerCapeType', s.artificerCapeType ?? D.artificerCapeType);
-    set('artificerCapeLevel', s.artificerCapeLevel ?? D.artificerCapeLevel);
-    set('cheesesmithingLevel', s.cheesesmithingLevel ?? D.cheesesmithingLevel);
-    set('cheesesmithingTool', s.cheesesmithingTool ?? D.cheesesmithingTool);
-    set('cheesesmithingToolLevel', s.cheesesmithingToolLevel ?? D.cheesesmithingToolLevel);
-    set('cheesesmithingTopEquipped', s.cheesesmithingTopEquipped ?? D.cheesesmithingTopEquipped);
-    set('cheesesmithingTopLevel', s.cheesesmithingTopLevel ?? D.cheesesmithingTopLevel);
-    set('cheesesmithingBottomsEquipped', s.cheesesmithingBottomsEquipped ?? D.cheesesmithingBottomsEquipped);
-    set('cheesesmithingBottomsLevel', s.cheesesmithingBottomsLevel ?? D.cheesesmithingBottomsLevel);
-    set('craftingLevel', s.craftingLevel ?? D.craftingLevel);
-    set('craftingTool', s.craftingTool ?? D.craftingTool);
-    set('craftingToolLevel', s.craftingToolLevel ?? D.craftingToolLevel);
-    set('craftingTopEquipped', s.craftingTopEquipped ?? D.craftingTopEquipped);
-    set('craftingTopLevel', s.craftingTopLevel ?? D.craftingTopLevel);
-    set('craftingBottomsEquipped', s.craftingBottomsEquipped ?? D.craftingBottomsEquipped);
-    set('craftingBottomsLevel', s.craftingBottomsLevel ?? D.craftingBottomsLevel);
-    set('tailoringLevel', s.tailoringLevel ?? D.tailoringLevel);
-    set('tailoringTool', s.tailoringTool ?? D.tailoringTool);
-    set('tailoringToolLevel', s.tailoringToolLevel ?? D.tailoringToolLevel);
-    set('tailoringTopEquipped', s.tailoringTopEquipped ?? D.tailoringTopEquipped);
-    set('tailoringTopLevel', s.tailoringTopLevel ?? D.tailoringTopLevel);
-    set('tailoringBottomsEquipped', s.tailoringBottomsEquipped ?? D.tailoringBottomsEquipped);
-    set('tailoringBottomsLevel', s.tailoringBottomsLevel ?? D.tailoringBottomsLevel);
-    set('forgeLevel', s.forgeLevel ?? D.forgeLevel);
-    set('workshopLevel', s.workshopLevel ?? D.workshopLevel);
-    set('sewing_parlorLevel', s.sewing_parlorLevel ?? D.sewing_parlorLevel);
-    set('skipBaseResourceCrafting', s.skipBaseResourceCrafting ?? D.skipBaseResourceCrafting);
-    set('ignoreCraftEfficiency', s.ignoreCraftEfficiency ?? D.ignoreCraftEfficiency);
+    const gearFields = [
+        'enhancingLevel', 'observatoryLevel', 'enhancer', 'enhancerLevel',
+        'enchantedGlovesEquipped', 'enchantedGlovesLevel',
+        'enhancerTopEquipped', 'enhancerTopLevel',
+        'enhancerBotEquipped', 'enhancerBotLevel',
+        'necklaceType', 'necklaceLevel',
+        'ringType', 'ringLevel',
+        'earringsType', 'earringsLevel',
+        'guzzlingPouchEquipped', 'guzzlingPouchLevel',
+        'capeEquipped', 'capeType', 'capeLevel',
+        'teaEnhancing', 'teaSuperEnhancing', 'teaUltraEnhancing',
+        'teaBlessed', 'wisdomTea', 'artisanTea',
+        'charmTier', 'charmLevel',
+        'enhancingBuffLevel', 'experienceBuffLevel', 'productionEfficiencyBuffLevel',
+        'achievementBonus',
+        'craftingTeaEfficiency', 'craftingTeaSuperEfficiency', 'craftingTeaUltraEfficiency',
+        'craftingEfficiencyTea', 'craftingWisdomTea',
+        'eyeWatchEquipped', 'eyeWatchLevel',
+        'artificerCapeEquipped', 'artificerCapeType', 'artificerCapeLevel',
+        'cheesesmithingLevel', 'cheesesmithingTool', 'cheesesmithingToolLevel',
+        'cheesesmithingTopEquipped', 'cheesesmithingTopLevel',
+        'cheesesmithingBottomsEquipped', 'cheesesmithingBottomsLevel',
+        'craftingLevel', 'craftingTool', 'craftingToolLevel',
+        'craftingTopEquipped', 'craftingTopLevel',
+        'craftingBottomsEquipped', 'craftingBottomsLevel',
+        'tailoringLevel', 'tailoringTool', 'tailoringToolLevel',
+        'tailoringTopEquipped', 'tailoringTopLevel',
+        'tailoringBottomsEquipped', 'tailoringBottomsLevel',
+        'forgeLevel', 'workshopLevel', 'sewing_parlorLevel', 'otherHouseLevel',
+        'skipBaseResourceCrafting', 'ignoreCraftEfficiency', 'includeRareFind',
+    ];
+    for (const id of gearFields) {
+        const val = s[id];
+        if (val !== undefined) _writeDom(id, val);
+        else _writeDom(id, D[id]);
+    }
+}
+
+function syncFromDom() {
+    settingsStore.sellMode = currentSellMode || 'pessimistic';
+    settingsStore.buyMode = _readDom('buyMode') || 'pessimistic';
+    settingsStore.craftBuyMode = _readDom('craftBuyMode') || 'pessimistic';
+    settingsStore.baseItemMode = _readDom('baseItemMode') || 'best';
+    settingsStore.refineMode = _readDom('refineMode') || 'auto';
+    settingsStore.craftingDepth = (() => {
+        const v = _readDom('craftingDepth');
+        if (v === 'best') return -1;
+        if (v === 'all') return 6;
+        return parseInt(v) || 0;
+    })();
+    settingsStore.gear = _collectGearFromDom();
+}
+
+function syncDom() {
+    if (typeof syncGlobals === 'function') syncGlobals();
+    _applyGearToDom(settingsStore.gear);
+
+    const s = settingsStore;
+    document.querySelectorAll('#sellModeButtons .mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === s.sellMode);
+    });
+    _writeDom('buyMode', s.buyMode);
+    document.querySelectorAll('#buyModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === s.buyMode);
+    });
+    _writeDom('craftBuyMode', s.craftBuyMode);
+    document.querySelectorAll('#craftBuyModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === s.craftBuyMode);
+    });
+    _writeDom('baseItemMode', s.baseItemMode);
+    document.querySelectorAll('#baseItemModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === s.baseItemMode);
+    });
+    _writeDom('refineMode', s.refineMode);
+    document.querySelectorAll('#refineModeButtons .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === s.refineMode);
+    });
+
+    for (const [key, val] of Object.entries(s.costFilters)) {
+        const btn = document.querySelector(`.cost-filter[data-cost="${key}"]`);
+        if (btn) btn.classList.toggle('active', val);
+    }
+    document.getElementById('btn-hide-instant')?.classList.toggle('active', s.hideInstant);
+    const volInput = document.getElementById('minVolumeInput');
+    if (volInput) volInput.value = s.minVolume;
+    const feeCb = document.getElementById('marketFeeToggle');
+    if (feeCb) feeCb.checked = s.marketFeePct > 0;
+
+    const depthInput = document.getElementById('craftingDepth');
+    if (depthInput) {
+        if (s.craftingDepth === -1) depthInput.value = 'best';
+        else if (s.craftingDepth >= 6) depthInput.value = 'all';
+        else depthInput.value = String(s.craftingDepth);
+    }
+
+    document.querySelectorAll('.level-filter').forEach(btn => {
+        const lvl = btn.getAttribute('data-level');
+        if (lvl === 'all') {
+            btn.classList.toggle('active', s.activeLevels.length === 0);
+        } else {
+            btn.classList.toggle('active', s.activeLevels.includes(parseInt(lvl)));
+        }
+    });
+
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = s.searchQuery;
+}
+
+function updateSetting(path, value) {
+    const parts = path.split('.');
+    let obj = settingsStore;
+    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = value;
+    syncDom();
+    saveSettings();
 }
 
 function saveSettings() {
-    const settings = {
-        sellMode: currentSellMode,
-        buyMode: document.getElementById('buyMode').value,
-        craftBuyMode: document.getElementById('craftBuyMode').value,
-        baseItemMode: document.getElementById('baseItemMode').value,
-        refineMode: document.getElementById('refineMode').value,
-        costFilters: costFilters,
-        hideInstant: hideInstant,
-        minVolume: minVolume,
-        activeLevels: Array.from(activeLevels),
-        marketFeePct: marketFeePct,
-        craftingDepth: getDepth(),
-        gear: _collectGearSettings(),
+    const s = settingsStore;
+    const serialized = {
+        sellMode: s.sellMode,
+        buyMode: s.buyMode,
+        craftBuyMode: s.craftBuyMode,
+        baseItemMode: s.baseItemMode,
+        refineMode: s.refineMode,
+        costFilters: s.costFilters,
+        hideInstant: s.hideInstant,
+        minVolume: s.minVolume,
+        activeLevels: s.activeLevels,
+        marketFeePct: s.marketFeePct,
+        craftingDepth: s.craftingDepth,
+        gear: s.gear,
     };
     try {
-        localStorage.setItem('mwi-enhance-settings', JSON.stringify(settings));
+        localStorage.setItem('mwi-enhance-settings', JSON.stringify(serialized));
+    } catch (e) { /* ignore */ }
+}
+
+function initStore() {
+    Object.assign(settingsStore, DEFAULT_SETTINGS);
+    settingsStore.activeLevels = [];
+    settingsStore.sort = { col: 11, asc: false };
+    settingsStore.searchQuery = '';
+    settingsStore.gear = { ...DEFAULT_SETTINGS.gear };
+
+    try {
+        const raw = localStorage.getItem('mwi-enhance-settings');
+        if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved.sellMode) settingsStore.sellMode = saved.sellMode;
+            if (saved.buyMode) settingsStore.buyMode = saved.buyMode;
+            if (saved.craftBuyMode) settingsStore.craftBuyMode = saved.craftBuyMode;
+            if (saved.baseItemMode) settingsStore.baseItemMode = saved.baseItemMode;
+            if (saved.refineMode) settingsStore.refineMode = saved.refineMode;
+            if (saved.costFilters) settingsStore.costFilters = saved.costFilters;
+            if (typeof saved.hideInstant === 'boolean') settingsStore.hideInstant = saved.hideInstant;
+            if (typeof saved.minVolume === 'number') settingsStore.minVolume = saved.minVolume;
+            if (typeof saved.marketFeePct === 'number') settingsStore.marketFeePct = saved.marketFeePct;
+            if (typeof saved.craftingDepth === 'number') settingsStore.craftingDepth = saved.craftingDepth;
+            if (saved.activeLevels) settingsStore.activeLevels = saved.activeLevels;
+            if (saved.sort) settingsStore.sort = saved.sort;
+            if (saved.gear) Object.assign(settingsStore.gear, saved.gear);
+        }
     } catch (e) { /* ignore */ }
 }
 
 function loadSettings() {
-    try {
-        const raw = localStorage.getItem('mwi-enhance-settings');
-        if (!raw) return;
-        const s = JSON.parse(raw);
-
-        if (s.sellMode) {
-            currentSellMode = s.sellMode;
-            document.querySelectorAll('#sellModeButtons .mode-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.mode === s.sellMode);
-            });
-        }
-
-        if (s.buyMode) {
-            document.getElementById('buyMode').value = s.buyMode;
-            document.querySelectorAll('#buyModeButtons .mode-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.mode === s.buyMode);
-            });
-        }
-
-        if (s.craftBuyMode) {
-            document.getElementById('craftBuyMode').value = s.craftBuyMode;
-            document.querySelectorAll('#craftBuyModeButtons .mode-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.mode === s.craftBuyMode);
-            });
-        }
-
-        if (s.baseItemMode) {
-            const modeMap = { 'market': 'ask' };
-            const mode = modeMap[s.baseItemMode] || s.baseItemMode;
-            document.getElementById('baseItemMode').value = mode;
-            document.querySelectorAll('#baseItemModeButtons .mode-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.mode === mode);
-            });
-        }
-
-        if (s.refineMode) {
-            document.getElementById('refineMode').value = s.refineMode;
-            document.querySelectorAll('#refineModeButtons .mode-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.mode === s.refineMode);
-            });
-        }
-
-        if (s.costFilters) {
-            costFilters = s.costFilters;
-            for (const [key, val] of Object.entries(costFilters)) {
-                const btn = document.querySelector(`.cost-filter[data-cost="${key}"]`);
-                if (btn) btn.classList.toggle('active', val);
-            }
-        }
-
-        if (typeof s.hideInstant === 'boolean') {
-            hideInstant = s.hideInstant;
-            document.getElementById('btn-hide-instant').classList.toggle('active', hideInstant);
-        }
-
-        if (typeof s.minVolume === 'number') {
-            minVolume = s.minVolume;
-            const volInput = document.getElementById('minVolumeInput');
-            if (volInput) volInput.value = minVolume;
-        }
-
-        if (typeof s.marketFeePct === 'number') {
-            marketFeePct = s.marketFeePct;
-            const cb = document.getElementById('marketFeeToggle');
-            if (cb) cb.checked = marketFeePct > 0;
-        }
-
-        if (typeof s.craftingDepth === 'number') {
-            const depthInput = document.getElementById('craftingDepth');
-            if (depthInput) {
-                if (s.craftingDepth === -1) depthInput.value = 'best';
-                else if (s.craftingDepth >= 6) depthInput.value = 'all';
-                else depthInput.value = String(s.craftingDepth);
-            }
-        }
-
-        if (s.activeLevels && s.activeLevels.length > 0) {
-            activeLevels = new Set(s.activeLevels);
-            document.querySelectorAll('.level-filter').forEach(b => {
-                const lvl = b.getAttribute('data-level');
-                if (lvl === 'all') return;
-                b.classList.toggle('active', activeLevels.has(parseInt(lvl)));
-            });
-            const allBtn = document.querySelector('.level-filter[data-level="all"]');
-            if (allBtn) allBtn.classList.toggle('active', activeLevels.size === 0);
-        }
-
-        if (s.gear) {
-            _applyGearSettings(s.gear);
-        }
-    } catch (e) { /* ignore parse errors */ }
+    initStore();
+    syncDom();
 }
 
 function resetSettings() {
-    try {
-        localStorage.removeItem('mwi-enhance-settings');
-    } catch (e) { /* ignore */ }
-
-    const D = DEFAULT_SETTINGS;
-
-    currentSellMode = D.sellMode;
-    hideInstant = D.hideInstant;
-    minVolume = D.minVolume;
-    marketFeePct = D.marketFeePct;
-    costFilters = { ...D.costFilters };
-    activeLevels = new Set();
-
-    document.querySelectorAll('#sellModeButtons .mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === D.sellMode);
-    });
-    document.getElementById('buyMode').value = D.buyMode;
-    document.querySelectorAll('#buyModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === D.buyMode);
-    });
-    document.getElementById('craftBuyMode').value = D.craftBuyMode;
-    document.querySelectorAll('#craftBuyModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === D.craftBuyMode);
-    });
-    document.getElementById('baseItemMode').value = D.baseItemMode;
-    document.querySelectorAll('#baseItemModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === D.baseItemMode);
-    });
-    document.getElementById('refineMode').value = D.refineMode;
-    document.querySelectorAll('#refineModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === D.refineMode);
-    });
-
-    for (const [key, val] of Object.entries(D.costFilters)) {
-        const btn = document.querySelector(`.cost-filter[data-cost="${key}"]`);
-        if (btn) btn.classList.toggle('active', val);
-    }
-
-    document.getElementById('btn-hide-instant').classList.toggle('active', D.hideInstant);
-    const volInput = document.getElementById('minVolumeInput');
-    if (volInput) volInput.value = D.minVolume;
-
-    const feeCb = document.getElementById('marketFeeToggle');
-    if (feeCb) feeCb.checked = D.marketFeePct > 0;
-
-    const depthInput = document.getElementById('craftingDepth');
-    if (depthInput) {
-        if (D.craftingDepth === -1) depthInput.value = 'best';
-        else if (D.craftingDepth >= 6) depthInput.value = 'all';
-        else depthInput.value = String(D.craftingDepth);
-    }
-
-    document.querySelectorAll('.level-filter').forEach(b => {
-        const lvl = b.getAttribute('data-level');
-        if (lvl === 'all') {
-            b.classList.toggle('active', true);
-        } else {
-            b.classList.remove('active');
-        }
-    });
-
+    try { localStorage.removeItem('mwi-enhance-settings'); } catch (e) { /* ignore */ }
+    Object.assign(settingsStore, DEFAULT_SETTINGS);
+    settingsStore.activeLevels = [];
+    settingsStore.sort = { col: 11, asc: false };
+    settingsStore.searchQuery = '';
+    settingsStore.gear = { ...DEFAULT_SETTINGS.gear };
+    syncDom();
     saveSettings();
     scheduleRecalc();
 }
 
+function getGearConfig() {
+    const g = settingsStore.gear;
+    const necklaceType = g.necklaceType || 'speed';
+    const charmTier = g.charmTier || 'none';
+    const parse = (id, def) => {
+        const v = parseInt(g[id]);
+        return isNaN(v) ? def : v;
+    };
+    return {
+        enhancingLevel: parse('enhancingLevel', 110),
+        observatoryLevel: parse('observatoryLevel', 4),
+        enhancer: g.enhancer || 'celestial_enhancer',
+        enhancerLevel: parse('enhancerLevel', 8),
+        enchantedGlovesEquipped: !!g.enchantedGlovesEquipped,
+        enchantedGlovesLevel: parse('enchantedGlovesLevel', 0),
+        guzzlingPouchEquipped: !!g.guzzlingPouchEquipped,
+        guzzlingPouchLevel: parse('guzzlingPouchLevel', 0),
+        enhancerTopEquipped: !!g.enhancerTopEquipped,
+        enhancerTopLevel: parse('enhancerTopLevel', 0),
+        enhancerBotEquipped: !!g.enhancerBotEquipped,
+        enhancerBotLevel: parse('enhancerBotLevel', 0),
+        philoNeckEquipped: necklaceType === 'philo',
+        philoNeckLevel: necklaceType === 'philo' ? parse('necklaceLevel', 0) : 0,
+        speedNeckEquipped: necklaceType === 'speed',
+        speedNeckLevel: necklaceType === 'speed' ? parse('necklaceLevel', 0) : 0,
+        ringType: g.ringType || 'none',
+        ringLevel: parse('ringLevel', 0),
+        earringsType: g.earringsType || 'none',
+        earringsLevel: parse('earringsLevel', 0),
+        capeEquipped: !!g.capeEquipped,
+        capeLevel: parse('capeLevel', 0),
+        capeRefined: g.capeType === 'refined',
+        artificerCapeEquipped: g.artificerCapeEquipped ?? true,
+        artificerCapeLevel: parse('artificerCapeLevel', 0),
+        artificerCapeRefined: g.artificerCapeType === 'refined',
+        charmEquipped: charmTier !== 'none',
+        charmTier: charmTier,
+        charmLevel: charmTier !== 'none' ? parse('charmLevel', 0) : 0,
+        teaEnhancing: !!g.teaEnhancing,
+        teaSuperEnhancing: !!g.teaSuperEnhancing,
+        teaUltraEnhancing: !!g.teaUltraEnhancing,
+        teaBlessed: !!g.teaBlessed,
+        teaWisdom: !!g.wisdomTea,
+        artisanTea: !!g.artisanTea,
+        achievementSuccessBonus: g.achievementBonus ? 0.2 : 0,
+        enhancingBuffLevel: parse('enhancingBuffLevel', 0),
+        experienceBuffLevel: parse('experienceBuffLevel', 0),
+        productionEfficiencyBuffLevel: parse('productionEfficiencyBuffLevel', 0),
+        buyMode: settingsStore.buyMode || 'pessimistic',
+        craftBuyMode: settingsStore.craftBuyMode || 'pessimistic',
+        baseItemMode: settingsStore.baseItemMode || 'best',
+        refineMode: settingsStore.refineMode || 'auto',
+        cheesesmithingLevel: parse('cheesesmithingLevel', 100),
+        cheesesmithingTool: g.cheesesmithingTool || 'none',
+        cheesesmithingToolLevel: parse('cheesesmithingToolLevel', 0),
+        cheesesmithingTopEquipped: !!g.cheesesmithingTopEquipped,
+        cheesesmithingTopLevel: parse('cheesesmithingTopLevel', 0),
+        cheesesmithingBottomsEquipped: !!g.cheesesmithingBottomsEquipped,
+        cheesesmithingBottomsLevel: parse('cheesesmithingBottomsLevel', 0),
+        craftingLevel: parse('craftingLevel', 100),
+        craftingTool: g.craftingTool || 'none',
+        craftingToolLevel: parse('craftingToolLevel', 0),
+        craftingTopEquipped: !!g.craftingTopEquipped,
+        craftingTopLevel: parse('craftingTopLevel', 0),
+        craftingBottomsEquipped: !!g.craftingBottomsEquipped,
+        craftingBottomsLevel: parse('craftingBottomsLevel', 0),
+        tailoringLevel: parse('tailoringLevel', 100),
+        tailoringTool: g.tailoringTool || 'none',
+        tailoringToolLevel: parse('tailoringToolLevel', 0),
+        tailoringTopEquipped: !!g.tailoringTopEquipped,
+        tailoringTopLevel: parse('tailoringTopLevel', 0),
+        tailoringBottomsEquipped: !!g.tailoringBottomsEquipped,
+        tailoringBottomsLevel: parse('tailoringBottomsLevel', 0),
+        craftingTeaEfficiency: !!g.craftingTeaEfficiency,
+        craftingTeaSuperEfficiency: !!g.craftingTeaSuperEfficiency,
+        craftingTeaUltraEfficiency: !!g.craftingTeaUltraEfficiency,
+        craftingEfficiencyTea: !!g.craftingEfficiencyTea,
+        craftingWisdomTea: !!g.craftingWisdomTea,
+        eyeWatchEquipped: g.eyeWatchEquipped ?? false,
+        eyeWatchLevel: parse('eyeWatchLevel', 0),
+        forgeLevel: parse('forgeLevel', 0),
+        workshopLevel: parse('workshopLevel', 0),
+        sewing_parlorLevel: parse('sewing_parlorLevel', 0),
+        otherHouseLevel: parse('otherHouseLevel', 0),
+        skipBaseResourceCrafting: g.skipBaseResourceCrafting ?? true,
+        ignoreCraftEfficiency: g.ignoreCraftEfficiency ?? true,
+        craftingDepth: settingsStore.craftingDepth,
+        includeRareFind: g.includeRareFind ?? true,
+    };
+}
+
 function resetGearSettings() {
-    const D = DEFAULT_SETTINGS.gear;
-    _applyGearSettings(D);
+    settingsStore.gear = { ...DEFAULT_SETTINGS.gear };
+    syncDom();
     updateGearIcons();
     updateTeaLevelDisplay();
     saveSettings();
@@ -347,7 +372,7 @@ function resetGearSettings() {
 function populateLevelSelects() {
     const selects = [
         'enhancerLevel', 'enchantedGlovesLevel', 'enhancerTopLevel', 'enhancerBotLevel',
-        'necklaceLevel', 'guzzlingPouchLevel', 'capeLevel', 'charmLevel',
+        'necklaceLevel', 'ringLevel', 'earringsLevel', 'guzzlingPouchLevel', 'capeLevel', 'charmLevel',
         'cheesesmithingToolLevel', 'cheesesmithingTopLevel', 'cheesesmithingBottomsLevel',
         'craftingToolLevel', 'craftingTopLevel', 'craftingBottomsLevel',
         'tailoringToolLevel', 'tailoringTopLevel', 'tailoringBottomsLevel',
@@ -448,6 +473,8 @@ function setupAutoCalc() {
         '#enhancerTopEquipped', '#enhancerTopLevel',
         '#enhancerBotEquipped', '#enhancerBotLevel',
         '#necklaceType', '#necklaceLevel',
+        '#ringType', '#ringLevel',
+        '#earringsType', '#earringsLevel',
         '#guzzlingPouchEquipped', '#guzzlingPouchLevel',
         '#capeEquipped', '#capeType', '#capeLevel',
         '#charmTier', '#charmLevel',
@@ -468,16 +495,26 @@ function setupAutoCalc() {
         '#tailoringLevel', '#tailoringTool', '#tailoringToolLevel',
         '#tailoringTopEquipped', '#tailoringTopLevel',
         '#tailoringBottomsEquipped', '#tailoringBottomsLevel',
-        '#forgeLevel', '#workshopLevel', '#sewing_parlorLevel',
+        '#forgeLevel', '#workshopLevel', '#sewing_parlorLevel', '#otherHouseLevel',
         '#skipBaseResourceCrafting',
         '#ignoreCraftEfficiency',
+        '#includeRareFind',
     ];
-    const onChange = () => { updateTeaLevelDisplay(); saveSettings(); scheduleRecalc(); };
+    const onChange = () => {
+        syncFromDom();
+        syncGlobals();
+        updateTeaLevelDisplay();
+        saveSettings();
+        const gd = window.GAME_DATA_STATIC;
+        if (gd) calculator = new EnhanceCalculator(gd, getGearConfig());
+        refreshBonuses();
+        scheduleRecalc();
+    };
     const onChangeWithIcons = () => { updateGearIcons(); onChange(); };
     for (const sel of selectors) {
         const el = document.querySelector(sel);
         if (!el) continue;
-        const handler = (sel === '#necklaceType' || sel === '#enhancer' || sel === '#capeType' || sel === '#artificerCapeType' || sel === '#cheesesmithingTool' || sel === '#craftingTool' || sel === '#tailoringTool') ? onChangeWithIcons : onChange;
+        const handler = (sel === '#necklaceType' || sel === '#enhancer' || sel === '#capeType' || sel === '#artificerCapeType' || sel === '#cheesesmithingTool' || sel === '#craftingTool' || sel === '#tailoringTool' || sel === '#ringType' || sel === '#earringsType') ? onChangeWithIcons : onChange;
         el.addEventListener('change', handler);
     }
 

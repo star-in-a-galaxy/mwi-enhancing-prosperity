@@ -3,47 +3,27 @@
  */
 
 function setSellMode(mode) {
-    currentSellMode = mode;
-    document.querySelectorAll('#sellModeButtons .mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === mode);
-    });
-    saveSettings();
+    updateSetting('sellMode', mode);
     if (allResults.length > 0) reSort();
 }
 
 function setBuyMode(mode) {
-    document.querySelectorAll('#buyModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === mode);
-    });
-    document.getElementById('buyMode').value = mode;
-    saveSettings();
+    updateSetting('buyMode', mode);
     scheduleRecalc();
 }
 
 function setCraftBuyMode(mode) {
-    document.querySelectorAll('#craftBuyModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === mode);
-    });
-    document.getElementById('craftBuyMode').value = mode;
-    saveSettings();
+    updateSetting('craftBuyMode', mode);
     scheduleRecalc();
 }
 
 function setBaseItemMode(mode) {
-    document.querySelectorAll('#baseItemModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === mode);
-    });
-    document.getElementById('baseItemMode').value = mode;
-    saveSettings();
+    updateSetting('baseItemMode', mode);
     scheduleRecalc();
 }
 
 function setRefineMode(mode) {
-    document.querySelectorAll('#refineModeButtons .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === mode);
-    });
-    document.getElementById('refineMode').value = mode;
-    saveSettings();
+    updateSetting('refineMode', mode);
     scheduleRecalc();
 }
 
@@ -73,19 +53,23 @@ function updateAutoCalcBtn() {
 }
 
 function onSearchInput() {
-    searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+    const val = document.getElementById('searchInput').value.toLowerCase().trim();
+    getSettings().searchQuery = val;
+    searchQuery = val;
     renderResults();
 }
 
 function toggleCostFilter(cost) {
-    costFilters[cost] = !costFilters[cost];
+    getSettings().costFilters[cost] = !getSettings().costFilters[cost];
+    costFilters[cost] = getSettings().costFilters[cost];
     document.querySelector(`.cost-filter[data-cost="${cost}"]`).classList.toggle('active', costFilters[cost]);
     saveSettings();
     renderResults();
 }
 
 function toggleHideInstant() {
-    hideInstant = !hideInstant;
+    getSettings().hideInstant = !getSettings().hideInstant;
+    hideInstant = getSettings().hideInstant;
     document.getElementById('btn-hide-instant').classList.toggle('active', hideInstant);
     saveSettings();
     renderResults();
@@ -93,7 +77,9 @@ function toggleHideInstant() {
 
 function onMinVolumeChange() {
     const input = document.getElementById('minVolumeInput');
-    minVolume = parseInt(input.value) || 0;
+    const val = parseInt(input.value) || 0;
+    getSettings().minVolume = val < 0 ? 0 : val;
+    minVolume = getSettings().minVolume;
     if (minVolume < 0) { minVolume = 0; input.value = 0; }
     saveSettings();
     renderResults();
@@ -113,12 +99,17 @@ function isBestDepth() {
 }
 
 function toggleMarketFee() {
-    marketFeePct = document.getElementById('marketFeeToggle').checked ? 2 : 0;
+    const checked = document.getElementById('marketFeeToggle').checked;
+    getSettings().marketFeePct = checked ? 2 : 0;
+    marketFeePct = getSettings().marketFeePct;
     saveSettings();
-    renderResults();
+    reSort();
 }
 
 function onDepthChange() {
+    const v = document.getElementById('craftingDepth')?.value;
+    const depth = v === 'best' ? -1 : v === 'all' ? 6 : (parseInt(v) || 0);
+    getSettings().craftingDepth = depth;
     saveSettings();
     scheduleRecalc();
 }
@@ -137,11 +128,15 @@ function populateLevelFilters() {
 }
 
 function filterLevel(level) {
+    const s = getSettings();
     if (level === 'all') {
+        s.activeLevels = [];
         activeLevels.clear();
     } else {
-        if (activeLevels.has(level)) activeLevels.delete(level);
-        else activeLevels.add(level);
+        const idx = s.activeLevels.indexOf(level);
+        if (idx >= 0) s.activeLevels.splice(idx, 1);
+        else s.activeLevels.push(level);
+        activeLevels = new Set(s.activeLevels);
     }
     document.querySelectorAll('.level-filter').forEach(b => {
         const btnLevel = b.getAttribute('data-level');
@@ -156,12 +151,14 @@ function filterLevel(level) {
 }
 
 function sortTable(colIndex) {
-    if (currentSort.col === colIndex) {
-        currentSort.asc = !currentSort.asc;
+    const s = getSettings();
+    if (s.sort.col === colIndex) {
+        s.sort.asc = !s.sort.asc;
     } else {
-        currentSort.col = colIndex;
-        currentSort.asc = false;
+        s.sort.col = colIndex;
+        s.sort.asc = false;
     }
+    currentSort = s.sort;
     reSort();
 }
 
@@ -188,7 +185,8 @@ function toggleTheme() {
 function setupTooltips() {
     const tip = document.getElementById('tooltip');
     if (!tip) return;
-    document.querySelectorAll('.info-icon').forEach(icon => {
+    document.querySelectorAll('.info-icon:not([data-bound])').forEach(icon => {
+        icon.setAttribute('data-bound', 'true');
         icon.addEventListener('mouseenter', () => {
             const text = icon.getAttribute('data-tip');
             if (!text) { tip.style.display = 'none'; return; }

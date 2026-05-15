@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
     costFilters: { '100m': true, '300m': true, '1b': true, '2b': true, '5b': true, 'over5b': true },
     hideInstant: true,
     minVolume: 0,
-    marketFeePct: 0,
+    marketFeePct: 1,
     craftingDepth: -1,
 
     gear: {
@@ -23,6 +23,10 @@ const DEFAULT_SETTINGS = {
         enhancerBotLevel: '0',
         necklaceType: 'speed',
         necklaceLevel: '5',
+        ringType: 'none',
+        ringLevel: '0',
+        earringsType: 'none',
+        earringsLevel: '0',
         guzzlingPouchEquipped: true,
         guzzlingPouchLevel: '6',
         capeEquipped: true,
@@ -74,7 +78,9 @@ const DEFAULT_SETTINGS = {
         forgeLevel: '0',
         workshopLevel: '0',
         sewing_parlorLevel: '0',
+        otherHouseLevel: '0',
         skipBaseResourceCrafting: true,
         ignoreCraftEfficiency: true,
+        includeRareFind: true,
     },
 };
