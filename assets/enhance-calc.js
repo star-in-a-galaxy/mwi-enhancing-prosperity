@@ -286,28 +286,25 @@ class EnhanceCalculator {
         return baseXp * (1 + xpBonus);
     }
     
-    // Calculate total Rare Find multiplier from gear (multiplicative)
+    // Calculate total Rare Find multiplier from gear (multiplicative by bucket)
     // Returns the multiplier to apply to base drop rates (e.g., 1.15 for +15%)
+    // Buckets: Gear (additive) × House rooms (additive)
     getRareFindMultiplier() {
-        let multiplier = 1.0;
+        let gearBonus = 0;
         
         // Enhancer tool rare find (1x scaling)
         if (this.config.enhancerEquipped !== false && this.config.enhancer) {
             const enhancerHrid = `/items/${this.config.enhancer}`;
             const base = this._getNoncombatStat(enhancerHrid, 'enhancingRareFind');
             const level = Math.max(0, this.config.enhancerLevel || 0);
-            if (base) {
-                multiplier *= (1 + base * this.enhanceBonus[level]);
-            }
+            if (base) gearBonus += base * this.enhanceBonus[level];
         }
         
         // Enhancer top rare find (1x scaling)
         if (this.config.enhancerTopEquipped) {
             const level = Math.max(0, this.config.enhancerTopLevel || 0);
             const base = this._getNoncombatStat('/items/enhancers_top', 'enhancingRareFind');
-            if (base) {
-                multiplier *= (1 + base * this.enhanceBonus[level]);
-            }
+            if (base) gearBonus += base * this.enhanceBonus[level];
         }
         
         // Ring rare find (5x accessory scaling)
@@ -319,7 +316,7 @@ class EnhanceCalculator {
                     this.config.ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_rare_find',
                     'skillingRareFind'
                 );
-                if (base) multiplier *= (1 + base * bonus);
+                if (base) gearBonus += base * bonus;
             }
         }
         
@@ -332,15 +329,16 @@ class EnhanceCalculator {
                     this.config.earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_rare_find',
                     'skillingRareFind'
                 );
-                if (base) multiplier *= (1 + base * bonus);
+                if (base) gearBonus += base * bonus;
             }
         }
         
-        // House rooms rare find (0.2% per level, multiplicative)
+        let multiplier = 1.0;
+        if (gearBonus > 0) multiplier *= (1 + gearBonus);
+        
+        // Bucket: House rooms rare find (0.2% per level)
         const houseRare = this._getHouseRareFindBonus();
-        if (houseRare > 0) {
-            multiplier *= (1 + houseRare);
-        }
+        if (houseRare > 0) multiplier *= (1 + houseRare);
         
         return multiplier;
     }
@@ -363,9 +361,10 @@ class EnhanceCalculator {
         return total * 0.0005;
     }
 
-    // Calculate total Essence Find multiplier from gear (multiplicative)
+    // Calculate total Essence Find multiplier from gear (single bucket: accessories)
+    // All essence find gear bonuses add together (same bucket = additive)
     getEssenceFindMultiplier() {
-        let multiplier = 1.0;
+        let totalBonus = 0;
         
         // Ring essence find (5x accessory scaling)
         if (this.config.ringType && this.config.ringType !== 'none') {
@@ -376,7 +375,7 @@ class EnhanceCalculator {
                     this.config.ringType === 'philo' ? '/items/philosophers_ring' : '/items/ring_of_essence_find',
                     'skillingEssenceFind'
                 );
-                if (base) multiplier *= (1 + base * bonus);
+                if (base) totalBonus += base * bonus;
             }
         }
         
@@ -389,11 +388,11 @@ class EnhanceCalculator {
                     this.config.earringsType === 'philo' ? '/items/philosophers_earrings' : '/items/earrings_of_essence_find',
                     'skillingEssenceFind'
                 );
-                if (base) multiplier *= (1 + base * bonus);
+                if (base) totalBonus += base * bonus;
             }
         }
         
-        return multiplier;
+        return 1 + totalBonus;
     }
     
     // Get base essence drop rate for the current enhancer tool
