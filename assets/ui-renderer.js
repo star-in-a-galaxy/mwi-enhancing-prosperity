@@ -3,7 +3,7 @@
  */
 
 function getProfit(r) {
-    const includeRare = document.getElementById('includeRareFind')?.checked ?? true;
+    const includeRare = getSettings().gear?.includeRareFind ?? true;
     return getSellPrice(r) - r.totalCost + (includeRare ? (r.rareFindValue || 0) : 0);
 }
 
@@ -298,7 +298,7 @@ function renderBaseItemSection(r) {
     const hrid = r.hrid;
     const baseItemMode = r._baseItemMode || 'best';
     const refineMode = r._refineMode || 'auto';
-    const craftBuyMode = document.getElementById('craftBuyMode')?.value || 'pessimistic';
+    const craftBuyMode = getSettings().craftBuyMode || 'pessimistic';
 
     const priceRes = new PriceResolver(window.GAME_DATA_STATIC || {});
     const marketAskRes = priceRes._resolveBuyPrice(hrid, 0, marketData.market, 'pessimistic');
@@ -307,7 +307,7 @@ function renderBaseItemSection(r) {
     const bidPrice = marketBidRes.bid > 0 ? marketBidRes.bid : 0;
 
     const cDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
-    const rMode = r._refineMode || document.getElementById('refineMode')?.value || 'auto';
+    const rMode = r._refineMode || getSettings().refineMode || 'auto';
     const craftData = getCraftMaterials(hrid, craftBuyMode, baseItemMode, cDepth, 0, false, 1, rMode);
 
     let usedSource, usedPrice;
@@ -365,7 +365,7 @@ function renderBaseItemSection(r) {
 
     if (craftData) {
         const craftCalc = new CraftingTimeCalculator(window.GAME_DATA_STATIC || {});
-        const craftConfig = _collectGearSettings();
+        const craftConfig = getGearConfig();
         let topCtSeconds = 0;
         let topCraftTimeInfo = null;
         try {
@@ -495,11 +495,11 @@ function _resolveDepthBasePrice(craftData, askPrice, bidPrice, baseItemMode, ref
 
 function renderDepthComparisons(r, sellPrice) {
     const gd = window.GAME_DATA_STATIC || {};
-    const craftBuyMode = document.getElementById('craftBuyMode')?.value || 'pessimistic';
+    const craftBuyMode = getSettings().craftBuyMode || 'pessimistic';
     const baseItemMode = r._baseItemMode || 'best';
     const refineMode = r._refineMode || 'auto';
     const selectedDepth = r._usedDepth !== undefined ? r._usedDepth : getDepth();
-    const craftConfig = _collectGearSettings();
+    const craftConfig = getGearConfig();
 
     const priceRes = new PriceResolver(gd);
     const askRes = priceRes._resolveBuyPrice(r.hrid, 0, marketData.market, 'pessimistic');
@@ -650,7 +650,7 @@ function renderResults() {
 
         const sellPrice = getSellPrice(r);
         const sellProfit = sellPrice - r.totalCost;
-        const includeRareBonus = document.getElementById('includeRareFind')?.checked ?? true;
+        const includeRareBonus = getSettings().gear?.includeRareFind ?? true;
         const profit = sellProfit + (includeRareBonus ? (r.rareFindValue || 0) : 0);
         const roi = r.totalCost > 0 ? (profit / r.totalCost) * 100 : 0;
         const matRoi = r.matCost > 0 ? (profit / r.matCost) * 100 : 0;

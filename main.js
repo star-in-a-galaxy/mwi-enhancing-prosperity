@@ -1,15 +1,19 @@
 /**
  * main.js — State globals, initialization
+ *
+ * Globals are thin aliases into the centralized settingsStore (settings.js).
+ * Only `syncGlobals()` writes to these; all other code reads them.
+ * Settings mutations happen through `updateSetting()` / `syncDom()` in settings.js.
  */
 
 let gameData = window.GAME_DATA_STATIC || {};
 let calculator = null;
 let allResults = [];
 let marketData = null;
-let currentSort = { col: 11, asc: false };
-let currentSellMode = 'pessimistic';
+let currentSort = null;
+let currentSellMode = null;
 let searchQuery = '';
-let costFilters = { '100m': true, '300m': true, '1b': true, '2b': true, '5b': true, 'over5b': true };
+let costFilters = null;
 let hideInstant = true;
 let minVolume = 0;
 let activeLevels = new Set();
@@ -17,6 +21,18 @@ let marketFeePct = 0;
 let expandedItem = null;
 let autoRefreshTimer = null;
 let isRefreshing = false;
+
+function syncGlobals() {
+    const s = getSettings();
+    currentSort = s.sort;
+    currentSellMode = s.sellMode;
+    searchQuery = s.searchQuery;
+    costFilters = s.costFilters;
+    hideInstant = s.hideInstant;
+    minVolume = s.minVolume;
+    activeLevels = new Set(s.activeLevels);
+    marketFeePct = s.marketFeePct;
+}
 
 function updateStatus(msg, type = '') {
     const el = document.getElementById('status');
@@ -51,26 +67,8 @@ async function initializeApp() {
         populateCraftingToolDropdown();
         populateEnhancerDropdown();
         populateCharmTierDropdown();
-
-        (() => {
-            const raw = localStorage.getItem('mwi-enhance-settings');
-            if (!raw) return;
-            try {
-                const s = JSON.parse(raw);
-                if (s.gear) {
-                    const enhEl = document.getElementById('enhancer');
-                    const charmEl = document.getElementById('charmTier');
-                    if (s.gear.enhancer && enhEl) {
-                        const hasOpt = Array.from(enhEl.options).some(o => o.value === s.gear.enhancer);
-                        if (hasOpt) enhEl.value = s.gear.enhancer;
-                    }
-                    if (s.gear.charmTier && charmEl) {
-                        const hasOpt = Array.from(charmEl.options).some(o => o.value === s.gear.charmTier);
-                        if (hasOpt) charmEl.value = s.gear.charmTier;
-                    }
-                }
-            } catch (e) { /* ignore */ }
-        })();
+        syncDom();
+        syncGlobals();
 
         debugDiagnostics();
 
@@ -112,7 +110,9 @@ window.addEventListener('DOMContentLoaded', () => {
     applyTheme(loadTheme());
     populateLevelFilters();
     populateLevelSelects();
-    loadSettings();
+    initStore();
+    syncDom();
+    syncGlobals();
     updateGearIcons();
     updateTeaLevelDisplay();
     setupTooltips();

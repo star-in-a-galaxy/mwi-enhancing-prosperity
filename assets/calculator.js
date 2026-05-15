@@ -19,7 +19,7 @@ async function calculateProfits(gen) {
     try {
         updateStatus('Calculating...', 'loading');
 
-        const config = readGearConfig();
+        const config = getGearConfig();
 
         calculator = new EnhanceCalculator(gameData, config);
 
@@ -141,112 +141,7 @@ function updateGearIcons() {
     }
 }
 
-function _parseLevel(id, def) {
-    const n = parseInt(document.getElementById(id).value);
-    return isNaN(n) ? def : n;
-}
 
-function readGearConfig() {
-    const necklaceType = document.getElementById('necklaceType').value;
-    const charmTier = document.getElementById('charmTier').value;
-    return {
-        enhancingLevel: _parseLevel('enhancingLevel', 110),
-        observatoryLevel: _parseLevel('observatoryLevel', 4),
-        enhancer: document.getElementById('enhancer').value || 'celestial_enhancer',
-        enhancerLevel: _parseLevel('enhancerLevel', 8),
-
-        enchantedGlovesEquipped: document.getElementById('enchantedGlovesEquipped').checked,
-        enchantedGlovesLevel: parseInt(document.getElementById('enchantedGlovesLevel').value) || 0,
-        guzzlingPouchEquipped: document.getElementById('guzzlingPouchEquipped').checked,
-        guzzlingPouchLevel: parseInt(document.getElementById('guzzlingPouchLevel').value) || 0,
-        enhancerTopEquipped: document.getElementById('enhancerTopEquipped').checked,
-        enhancerTopLevel: parseInt(document.getElementById('enhancerTopLevel').value) || 0,
-        enhancerBotEquipped: document.getElementById('enhancerBotEquipped').checked,
-        enhancerBotLevel: parseInt(document.getElementById('enhancerBotLevel').value) || 0,
-
-        philoNeckEquipped: necklaceType === 'philo',
-        philoNeckLevel: necklaceType === 'philo' ? _parseLevel('necklaceLevel', 0) : 0,
-        speedNeckEquipped: necklaceType === 'speed',
-        speedNeckLevel: necklaceType === 'speed' ? _parseLevel('necklaceLevel', 0) : 0,
-
-        ringType: document.getElementById('ringType').value || 'none',
-        ringLevel: _parseLevel('ringLevel', 0),
-        earringsType: document.getElementById('earringsType').value || 'none',
-        earringsLevel: _parseLevel('earringsLevel', 0),
-
-        capeEquipped: document.getElementById('capeEquipped').checked,
-        capeLevel: parseInt(document.getElementById('capeLevel').value) || 0,
-        capeRefined: document.getElementById('capeType').value === 'refined',
-
-        artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
-        artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
-        artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
-
-        charmEquipped: charmTier !== 'none',
-        charmTier: charmTier,
-        charmLevel: charmTier !== 'none' ? parseInt(document.getElementById('charmLevel').value) || 0 : 0,
-
-        teaEnhancing: document.getElementById('teaEnhancing').checked,
-        teaSuperEnhancing: document.getElementById('teaSuperEnhancing').checked,
-        teaUltraEnhancing: document.getElementById('teaUltraEnhancing').checked,
-        teaBlessed: document.getElementById('teaBlessed').checked,
-        teaWisdom: document.getElementById('wisdomTea').checked,
-        artisanTea: document.getElementById('artisanTea').checked,
-
-        achievementSuccessBonus: document.getElementById('achievementBonus').checked ? 0.2 : 0,
-
-        enhancingBuffLevel: parseInt(document.getElementById('enhancingBuffLevel').value) || 0,
-        experienceBuffLevel: parseInt(document.getElementById('experienceBuffLevel').value) || 0,
-        productionEfficiencyBuffLevel: parseInt(document.getElementById('productionEfficiencyBuffLevel').value) || 0,
-
-        buyMode: document.getElementById('buyMode').value || 'pessimistic',
-        craftBuyMode: document.getElementById('craftBuyMode').value || 'pessimistic',
-        baseItemMode: document.getElementById('baseItemMode').value || 'best',
-        refineMode: document.getElementById('refineMode').value || 'auto',
-
-        cheesesmithingLevel: _parseLevel('cheesesmithingLevel', 100),
-        cheesesmithingTool: document.getElementById('cheesesmithingTool').value || 'none',
-        cheesesmithingToolLevel: _parseLevel('cheesesmithingToolLevel', 0),
-        cheesesmithingTopEquipped: document.getElementById('cheesesmithingTopEquipped').checked,
-        cheesesmithingTopLevel: _parseLevel('cheesesmithingTopLevel', 0),
-        cheesesmithingBottomsEquipped: document.getElementById('cheesesmithingBottomsEquipped').checked,
-        cheesesmithingBottomsLevel: _parseLevel('cheesesmithingBottomsLevel', 0),
-        craftingLevel: _parseLevel('craftingLevel', 100),
-        craftingTool: document.getElementById('craftingTool').value || 'none',
-        craftingToolLevel: _parseLevel('craftingToolLevel', 0),
-        craftingTopEquipped: document.getElementById('craftingTopEquipped').checked,
-        craftingTopLevel: _parseLevel('craftingTopLevel', 0),
-        craftingBottomsEquipped: document.getElementById('craftingBottomsEquipped').checked,
-        craftingBottomsLevel: _parseLevel('craftingBottomsLevel', 0),
-        tailoringLevel: _parseLevel('tailoringLevel', 100),
-        tailoringTool: document.getElementById('tailoringTool').value || 'none',
-        tailoringToolLevel: _parseLevel('tailoringToolLevel', 0),
-        tailoringTopEquipped: document.getElementById('tailoringTopEquipped').checked,
-        tailoringTopLevel: _parseLevel('tailoringTopLevel', 0),
-        tailoringBottomsEquipped: document.getElementById('tailoringBottomsEquipped').checked,
-        tailoringBottomsLevel: _parseLevel('tailoringBottomsLevel', 0),
-
-        craftingTeaEfficiency: document.getElementById('craftingTeaEfficiency')?.checked ?? false,
-        craftingTeaSuperEfficiency: document.getElementById('craftingTeaSuperEfficiency')?.checked ?? false,
-        craftingTeaUltraEfficiency: document.getElementById('craftingTeaUltraEfficiency')?.checked ?? false,
-        craftingEfficiencyTea: document.getElementById('craftingEfficiencyTea')?.checked ?? false,
-        craftingWisdomTea: document.getElementById('craftingWisdomTea')?.checked ?? false,
-        eyeWatchEquipped: document.getElementById('eyeWatchEquipped')?.checked ?? false,
-        eyeWatchLevel: parseInt(document.getElementById('eyeWatchLevel')?.value || '0'),
-        artificerCapeEquipped: document.getElementById('artificerCapeEquipped')?.checked ?? true,
-        artificerCapeLevel: parseInt(document.getElementById('artificerCapeLevel')?.value || '0'),
-        artificerCapeRefined: document.getElementById('artificerCapeType')?.value === 'refined',
-
-        forgeLevel: parseInt(document.getElementById('forgeLevel')?.value || '0'),
-        workshopLevel: parseInt(document.getElementById('workshopLevel')?.value || '0'),
-        sewing_parlorLevel: parseInt(document.getElementById('sewing_parlorLevel')?.value || '0'),
-        otherHouseLevel: parseInt(document.getElementById('otherHouseLevel')?.value || '0'),
-        skipBaseResourceCrafting: document.getElementById('skipBaseResourceCrafting')?.checked ?? true,
-        ignoreCraftEfficiency: document.getElementById('ignoreCraftEfficiency')?.checked ?? true,
-        craftingDepth: getDepth(),
-        includeRareFind: document.getElementById('includeRareFind')?.checked ?? true,
-    };
-}
 
 function getArtisansCrateForItem(itemLevel) {
     if (itemLevel >= 70) {
@@ -442,8 +337,7 @@ async function calculateAllProfitsAsync(config) {
                     }
 
                     const rawPrice = sellPrices.pessimistic?.price || sellPrices.optimistic?.price || 0;
-                    const feeCb = document.getElementById('marketFeeToggle');
-                    const feePct = feeCb?.checked ? 2 : 0;
+                    const feePct = getSettings().marketFeePct;
                     const selPrice = feePct > 0 ? Math.round(rawPrice * (1 - feePct / 100)) : rawPrice;
                     const profit = selPrice + totalRareFindValue - totalCost;
                     const cmpPerDay = (durationDays + craftDays) > 0 ? profit / (durationDays + craftDays) : 0;
