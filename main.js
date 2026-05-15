@@ -20,6 +20,9 @@ let activeLevels = new Set();
 let marketFeePct = 0;
 let expandedItem = null;
 let autoRefreshTimer = null;
+let refreshCountdownTimer = null;
+let refreshIntervalMs = 10 * 60 * 1000;
+let lastRefreshTime = null;
 let isRefreshing = false;
 
 function syncGlobals() {
@@ -117,26 +120,47 @@ window.importGearFromStorage = function importGearFromStorage() {
     }
 }
 
+function updateRefreshCountdown() {
+    const el = document.getElementById('refreshCountdown');
+    if (!el) return;
+    if (!lastRefreshTime) { el.textContent = ''; return; }
+    const elapsed = Date.now() - lastRefreshTime;
+    const remaining = Math.max(0, refreshIntervalMs - elapsed);
+    const min = Math.floor(remaining / 60000);
+    const sec = Math.floor((remaining % 60000) / 1000);
+    el.textContent = min > 0 ? ` ${min}m${String(sec).padStart(2, '0')}s` : ` ${sec}s`;
+}
+
+async function refreshMarketData() {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    try {
+        updateStatus('Refreshing market data...', 'loading');
+        const fresh = await window.REFRESH_MARKET_DATA();
+        if (fresh?.market) {
+            marketData = fresh;
+            updateDataInfo(marketData);
+            await calculateProfits();
+            updateStatus('Market data refreshed', 'success');
+        }
+    } catch (e) {
+        console.warn('Refresh failed:', e.message);
+    } finally {
+        isRefreshing = false;
+        lastRefreshTime = Date.now();
+    }
+}
+
+function forceRefreshMarketData() {
+    refreshMarketData();
+}
+
 function startAutoRefresh() {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-    autoRefreshTimer = setInterval(async () => {
-        if (isRefreshing) return;
-        isRefreshing = true;
-        try {
-            updateStatus('Refreshing market data...', 'loading');
-            const fresh = await window.REFRESH_MARKET_DATA();
-            if (fresh?.market) {
-                marketData = fresh;
-                updateDataInfo(marketData);
-                await calculateProfits();
-                updateStatus('Market data refreshed', 'success');
-            }
-        } catch (e) {
-            console.warn('Auto-refresh failed:', e.message);
-        } finally {
-            isRefreshing = false;
-        }
-    }, 10 * 60 * 1000);
+    if (refreshCountdownTimer) clearInterval(refreshCountdownTimer);
+    lastRefreshTime = Date.now();
+    autoRefreshTimer = setInterval(refreshMarketData, refreshIntervalMs);
+    refreshCountdownTimer = setInterval(updateRefreshCountdown, 1000);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

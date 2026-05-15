@@ -1069,6 +1069,28 @@ table tbody tr.detail-row.expanded {
 #dataInfoBar {
     font-size: 0.82rem;
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#refreshCountdown {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    min-width: 48px;
+}
+#forcePollBtn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 1rem;
+    padding: 0 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1.4;
+}
+#forcePollBtn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 #resetBtn {

@@ -27,7 +27,7 @@ function cacheBust(url) {
 async function loadLiveMarketData() {
     const url = cacheBust(MWI_API_URL);
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: 'no-cache' });
         if (!res.ok) return null;
         const json = await res.json();
         if (!json.marketData || !json.timestamp) return null;
