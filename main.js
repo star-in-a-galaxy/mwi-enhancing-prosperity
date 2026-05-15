@@ -84,6 +84,27 @@ async function initializeApp() {
     }
 }
 
+// Explicit window export for Tampermonkey script (sandbox can't always see function decls)
+window.importGearFromStorage = function importGearFromStorage() {
+    try {
+        const raw = localStorage.getItem('mwi-enhance-settings');
+        if (!raw) { updateStatus('No saved settings found in localStorage', 'error'); return; }
+        const saved = JSON.parse(raw);
+        if (!saved.gear || typeof saved.gear !== 'object') {
+            updateStatus('No gear data found in saved settings', 'error'); return;
+        }
+        Object.assign(settingsStore.gear, saved.gear);
+        syncDom();
+        saveSettings();
+        updateGearIcons();
+        updateTeaLevelDisplay();
+        scheduleRecalc();
+    } catch (e) {
+        console.warn('importGearFromStorage error:', e);
+        updateStatus('Failed to import gear: ' + e.message, 'error');
+    }
+}
+
 function startAutoRefresh() {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
     autoRefreshTimer = setInterval(async () => {

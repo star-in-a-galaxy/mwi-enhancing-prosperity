@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
     costFilters: { '100m': true, '300m': true, '1b': true, '2b': true, '5b': true, 'over5b': true },
     hideInstant: true,
     minVolume: 0,
-    marketFeePct: 0,
+    marketFeePct: 1,
     craftingDepth: -1,
 
     gear: {
